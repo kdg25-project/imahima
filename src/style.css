@@ -1,0 +1,8 @@
+:root { font-family: system-ui, sans-serif; color: #252525; background: #fafafa; }
+body { margin: 0; }
+.container { max-width: 60rem; margin: 0 auto; padding: 1.5rem; }
+header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; border-bottom: 1px solid #ddd; padding-bottom: 1rem; }
+nav { display: flex; gap: 1rem; }
+main { padding-top: 2rem; }
+a { color: #155aa1; }
+button { font: inherit; padding: .4rem .8rem; }
