@@ -9,6 +9,13 @@ describe('API', () => {
     expect(await response.json()).toEqual({ status: 'ok' })
   })
 
+  it('exposes the weather route placeholder', async () => {
+    const response = await app.request('/api/weather')
+    expect(response.status).toBe(501)
+    expect(response.headers.get('content-type')).toContain('application/json')
+    expect(await response.json()).toEqual({ error: 'Not Implemented' })
+  })
+
   it.each(['/api', '/api/missing'])('returns JSON 404 for %s', async (path) => {
     const response = await app.request(path, { headers: { accept: 'text/html' } })
     expect(response.status).toBe(404)
