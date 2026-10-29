@@ -29,7 +29,7 @@ function Home() {
         API: {status === 'loading' ? '確認中…' : status === 'ok' ? '接続できました' : '接続できませんでした'}
       </p>
       {status === 'error' && <button onClick={() => { setStatus('loading'); setAttempt((n) => n + 1) }}>再試行</button>}
-      <p><Link to="/search">検索ページへ</Link></p>
+      <p><Link to="/search" search={{ lat: undefined, lng: undefined, name: undefined, area: undefined }}>検索ページへ</Link></p>
     </>
   )
 }

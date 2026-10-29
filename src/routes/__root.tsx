@@ -12,7 +12,7 @@ function Root() {
         <Link to="/">いまひま</Link>
         <nav aria-label="メインナビゲーション">
           <Link to="/">ホーム</Link>
-          <Link to="/search">検索</Link>
+          <Link to="/search" search={{ lat: undefined, lng: undefined, name: undefined, area: undefined }}>検索</Link>
         </nav>
       </header>
       <main><Outlet /></main>
