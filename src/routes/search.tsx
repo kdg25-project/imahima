@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 type LocationCandidate = {
   name: string
@@ -34,6 +34,8 @@ function Search() {
   const [query, setQuery] = useState('')
   const [candidates, setCandidates] = useState<LocationCandidate[]>([])
   const [candidateStatus, setCandidateStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [isLocationOpen, setIsLocationOpen] = useState(false)
+  const hasRequestedLocation = useRef(false)
 
   useEffect(() => {
     if (query.trim().length < 2) return
@@ -65,7 +67,7 @@ function Search() {
     }
   }, [query])
 
-  const requestCurrentLocation = () => {
+  const requestCurrentLocation = useCallback(() => {
     if (!navigator.geolocation) {
       setLocationStatus('unsupported')
       return
@@ -101,6 +103,7 @@ function Search() {
           },
           replace: true,
         })
+        setIsLocationOpen(false)
       },
       (error) => {
         setLocationNameStatus('idle')
@@ -108,7 +111,13 @@ function Search() {
       },
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
     )
-  }
+  }, [navigate])
+
+  useEffect(() => {
+    if (hasRequestedLocation.current) return
+    hasRequestedLocation.current = true
+    requestCurrentLocation()
+  }, [requestCurrentLocation])
 
   const selectCandidate = (candidate: LocationCandidate) => {
     void navigate({
@@ -120,81 +129,88 @@ function Search() {
 
   const selectedLocation = lat !== undefined && lng !== undefined && name
     ? { name, area, lat, lng }
-    : undefined
+    : { name: '現在地周辺', area: undefined, lat: undefined, lng: undefined }
+
+  const selectedLocationLabel = selectedLocation.name === '現在地' ? '現在地周辺' : selectedLocation.name
 
   return (
     <div className="location-page">
       <section className="intro">
-        <p className="eyebrow">おでかけ先を決める</p>
-        <h1>どこで過ごす？</h1>
-        <p>現在地、駅名、地名から検索の起点を選べます。</p>
+        <p className="eyebrow">エリア</p>
+        <h1>近くから探す</h1>
+        <p>現在地や駅名・地名から選べます。</p>
       </section>
 
-      <section className="location-panel" aria-labelledby="current-location-heading">
-        <div>
-          <p className="section-label">すぐに探す</p>
-          <h2 id="current-location-heading">現在地を使う</h2>
-          <p className="muted">位置情報はこの検索にだけ使用します。</p>
-        </div>
-        <button className="primary-button" onClick={requestCurrentLocation} disabled={locationStatus === 'loading'}>
-          {locationStatus === 'loading' ? '現在地を確認中…' : '現在地を取得'}
+      <section className={`location-selector${isLocationOpen ? ' is-open' : ''}`} aria-labelledby="location-selector-heading">
+        <button
+          className="location-selector-toggle"
+          aria-expanded={isLocationOpen}
+          aria-controls="location-options"
+          onClick={() => setIsLocationOpen((open) => !open)}
+        >
+          <span className="location-selector-icon" aria-hidden="true">⌖</span>
+          <span className="location-selector-copy">
+            <span className="section-label">エリア</span>
+            <strong id="location-selector-heading">{selectedLocationLabel}</strong>
+            {selectedLocation.area && <small>{selectedLocation.area}</small>}
+            {!selectedLocation.area && locationStatus === 'loading' && <small>現在地を確認中…</small>}
+          </span>
+          <span className="location-selector-chevron" aria-hidden="true">⌄</span>
         </button>
-        <p className="status-message" aria-live="polite">
-          {locationStatus === 'denied' && '位置情報が許可されていません。駅名・地名から選べます。'}
-          {locationStatus === 'unsupported' && 'このブラウザは位置情報に対応していません。駅名・地名から選べます。'}
-          {locationStatus === 'error' && '現在地を取得できませんでした。もう一度試すか、駅名・地名から選んでください。'}
-          {locationStatus === 'granted' && '現在地を検索条件に設定しました。'}
-        </p>
-        {(locationStatus === 'denied' || locationStatus === 'error') && (
-          <button className="text-button" onClick={requestCurrentLocation}>再試行</button>
-        )}
-      </section>
 
-      <section className="location-panel" aria-labelledby="manual-location-heading">
-        <p className="section-label">別の場所を選ぶ</p>
-        <h2 id="manual-location-heading">駅名・地名で探す</h2>
-        <label className="search-field">
-          <span>駅名または地名</span>
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="例：新宿、横浜駅"
-            aria-describedby="location-search-note"
-          />
-        </label>
-        <p id="location-search-note" className="muted">候補から選んだ地点だけが検索条件になります。</p>
-        {query.trim().length >= 2 && (
-          <div className="candidate-list" aria-live="polite">
-            {candidateStatus === 'loading' && <p className="muted">候補を検索中…</p>}
-            {candidateStatus === 'error' && <p className="empty-message">候補を取得できませんでした。もう一度お試しください。</p>}
-            {candidateStatus === 'idle' && candidates.length > 0 && candidates.map((candidate) => (
-              <button className="candidate" key={`${candidate.name}|${candidate.area}`} onClick={() => selectCandidate(candidate)}>
-                <strong>{candidate.name}</strong>
-                <span>{candidate.area}</span>
+        {isLocationOpen && (
+          <div id="location-options" className="location-options">
+            <div className="location-option-group">
+              <p className="option-heading">現在地を使う</p>
+              <button className="primary-button" onClick={requestCurrentLocation} disabled={locationStatus === 'loading'}>
+                {locationStatus === 'loading' ? '現在地を確認中…' : '現在地を取得'}
               </button>
-            ))}
-            {candidateStatus === 'idle' && candidates.length === 0 && (
-              <p className="empty-message">候補が見つかりません。別の駅名・地名を試してください。</p>
-            )}
+              <p className="status-message" aria-live="polite">
+                {locationStatus === 'denied' && '位置情報が許可されていません。'}
+                {locationStatus === 'unsupported' && 'このブラウザは位置情報に対応していません。'}
+                {locationStatus === 'error' && '現在地を取得できませんでした。'}
+                {locationStatus === 'granted' && '現在地を検索条件に設定しました。'}
+              </p>
+              {(locationStatus === 'denied' || locationStatus === 'error') && (
+                <button className="text-button" onClick={requestCurrentLocation}>再試行</button>
+              )}
+            </div>
+
+            <div className="location-option-group">
+              <p className="option-heading">駅名・地名で変更</p>
+              <label className="search-field">
+                <span>駅名または地名</span>
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="例：新宿、横浜駅"
+                  aria-describedby="location-search-note"
+                />
+              </label>
+              <p id="location-search-note" className="muted">候補から選んだ地点が検索条件になります。</p>
+              {query.trim().length >= 2 && (
+                <div className="candidate-list" aria-live="polite">
+                  {candidateStatus === 'loading' && <p className="muted">候補を検索中…</p>}
+                  {candidateStatus === 'error' && <p className="empty-message">候補を取得できませんでした。</p>}
+                  {candidateStatus === 'idle' && candidates.length > 0 && candidates.map((candidate) => (
+                    <button className="candidate" key={`${candidate.name}|${candidate.area}`} onClick={() => { selectCandidate(candidate); setIsLocationOpen(false) }}>
+                      <strong>{candidate.name}</strong>
+                      <span>{candidate.area}</span>
+                    </button>
+                  ))}
+                  {candidateStatus === 'idle' && candidates.length === 0 && (
+                    <p className="empty-message">候補が見つかりません。</p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </section>
 
-      {selectedLocation && (
-        <section className="selected-location" aria-live="polite">
-          <div>
-            <p className="section-label">選択中の地点</p>
-            <strong>{selectedLocation.name}</strong>
-            {selectedLocation.area && <span>{selectedLocation.area}</span>}
-            {name === '現在地' && locationNameStatus === 'loading' && <span>住所名を確認中…</span>}
-            {name === '現在地' && locationNameStatus === 'error' && <span>住所名を取得できませんでした</span>}
-          </div>
-          <button
-            className="text-button"
-            onClick={() => void navigate({ search: { lat: undefined, lng: undefined, name: undefined, area: undefined }, replace: true })}
-          >変更</button>
-        </section>
+      {name === '現在地' && locationNameStatus === 'error' && (
+        <p className="status-message" aria-live="polite">住所名を取得できませんでした。</p>
       )}
 
       <Link className="back-link" to="/">ホームへ戻る</Link>
