@@ -1,7 +1,7 @@
 :root {
     font-family: 'Avenir Next', 'Hiragino Kaku Gothic ProN', sans-serif;
     color: #17231f;
-    background: #f7f6f3;
+    background: #F6F4F1;
 }
 
 body {
@@ -51,7 +51,7 @@ button {
 }
 
 .intro {
-    margin-bottom: .85rem;
+    margin-bottom: 1.65rem;
 }
 
 .eyebrow,
@@ -70,10 +70,27 @@ p {
 }
 
 h1 {
-    margin-bottom: .25rem;
-    font-size: 1.55rem;
-    line-height: 1;
+    margin: 0;
+    font-size: .875rem;
+    line-height: 1.2;
     letter-spacing: 0;
+}
+
+.area-heading {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding-left: .1rem;
+}
+
+.area-heading-icon {
+    width: 1.4rem;
+    height: 1.6rem;
+    fill: none;
+    stroke: #111;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
 }
 
 h2 {
@@ -104,20 +121,32 @@ h2 {
 
 .location-selector {
     overflow: hidden;
-    margin-bottom: .65rem;
-    border: 1px solid #d8d8d8;
-    border-radius: .55rem;
-    background: #fff;
+    box-sizing: border-box;
+    width: 350px;
+    max-width: calc(100% - 2rem);
+    height: 48px;
+    margin: 0 auto .65rem;
+    border: 1px solid #d5d5d5;
+    border-radius: 8px;
+    background: transparent;
+}
+
+.location-selector.is-open {
+    height: auto;
+    min-height: 48px;
 }
 
 .location-selector-toggle {
     display: flex;
     align-items: center;
     width: 100%;
-    gap: .7rem;
+    gap: .8rem;
     border: 0;
     background: transparent;
-    padding: .8rem .85rem;
+    box-sizing: border-box;
+    height: 48px;
+    min-height: 48px;
+    padding: 0 1rem;
     color: #17231f;
     text-align: left;
 }
@@ -128,18 +157,22 @@ h2 {
 }
 
 .location-selector-icon {
-    display: grid;
-    flex: 0 0 1.7rem;
-    place-items: center;
-    font-size: 1.45rem;
-    line-height: 1;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: 0 0 1.75rem;
+    fill: none;
+    stroke: #111;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
 }
 
 .location-selector-copy {
-    display: grid;
+    display: flex;
+    align-items: center;
     min-width: 0;
     flex: 1;
-    gap: .12rem;
+    gap: .7rem;
 }
 
 .location-selector-copy .section-label {
@@ -150,7 +183,7 @@ h2 {
 
 .location-selector-copy strong {
     overflow: hidden;
-    font-size: .98rem;
+    font-size: 1rem;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -163,19 +196,29 @@ h2 {
     white-space: nowrap;
 }
 
+.location-selector-copy .section-label {
+    display: none;
+}
+
 .location-selector-chevron {
-    color: #555;
-    font-size: 1.2rem;
-    line-height: 1;
-    transform: translateY(-.1rem);
+    width: 1.25rem;
+    height: 1.25rem;
+    flex: 0 0 1.25rem;
+    fill: none;
+    stroke: #555;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
 }
 
 .is-open .location-selector-chevron {
-    transform: rotate(180deg) translateY(.1rem);
+    transform: rotate(180deg);
 }
 
 .location-options {
+    box-sizing: border-box;
     display: grid;
+    width: 100%;
     gap: .85rem;
     border-top: 1px solid #e3e3e3;
     padding: .85rem;

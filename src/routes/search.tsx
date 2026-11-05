@@ -136,9 +136,13 @@ function Search() {
   return (
     <div className="location-page">
       <section className="intro">
-        <p className="eyebrow">エリア</p>
-        <h1>近くから探す</h1>
-        <p>現在地や駅名・地名から選べます。</p>
+        <div className="area-heading">
+          <svg className="area-heading-icon" viewBox="0 0 24 28" aria-hidden="true">
+            <path d="M12 26S3 17.4 3 10.5a9 9 0 1 1 18 0C21 17.4 12 26 12 26Z" />
+            <circle cx="12" cy="10.5" r="3.2" />
+          </svg>
+          <h1 className="text-lg">エリア</h1>
+        </div>
       </section>
 
       <section className={`location-selector${isLocationOpen ? ' is-open' : ''}`} aria-labelledby="location-selector-heading">
@@ -148,14 +152,18 @@ function Search() {
           aria-controls="location-options"
           onClick={() => setIsLocationOpen((open) => !open)}
         >
-          <span className="location-selector-icon" aria-hidden="true">⌖</span>
+          <svg className="location-selector-icon" viewBox="0 0 32 32" aria-hidden="true">
+            <path d="m3 7 9-4 9 4 8-4v22l-8 4-9-4-9 4V7Z" />
+            <path d="M12 3v22M21 7v22" />
+          </svg>
           <span className="location-selector-copy">
-            <span className="section-label">エリア</span>
             <strong id="location-selector-heading">{selectedLocationLabel}</strong>
             {selectedLocation.area && <small>{selectedLocation.area}</small>}
             {!selectedLocation.area && locationStatus === 'loading' && <small>現在地を確認中…</small>}
           </span>
-          <span className="location-selector-chevron" aria-hidden="true">⌄</span>
+          <svg className="location-selector-chevron" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
         </button>
 
         {isLocationOpen && (
