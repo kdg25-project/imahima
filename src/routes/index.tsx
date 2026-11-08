@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { lazy, Suspense, useState } from 'react'
 import { buttonClassName, ButtonArrow } from '../components/ui/Button'
 import { CategoryGlyph, Icon } from '../components/ui/Icon'
@@ -10,14 +10,33 @@ const UiPreview = import.meta.env.DEV ? lazy(() => import('../components/dev/UiP
 
 export const Route = createFileRoute('/')({ component: Home })
 const categoryLabels = ['すべて', 'カフェ', 'ごはん', '買い物', '遊び', '観光', '運動', '自然', 'その他']
-const timeLabels = ['~15分', '30分', '1時間', '2時間', '3時間~']
+const timeLabels = ['15分', '30分', '1時間', '2時間', '3時間'] as const
+const timeMinutes = [15, 30, 60, 120, 180] as const
 
 function Home() {
+  const navigate = useNavigate({ from: '/' })
   const [mode, setMode] = useState<'nearby' | 'free-time'>('nearby')
   const [category, setCategory] = useState('すべて')
   const [timePosition, setTimePosition] = useState(2)
   const { preview } = Route.useSearch()
   if (preview === 'states' && UiPreview) return <Suspense fallback={<LoadingState />}><UiPreview /></Suspense>
+
+  const submitSearch = () => {
+    void navigate({
+      to: '/search',
+      search: {
+        mode,
+        category,
+        freeTime: mode === 'free-time' ? timeMinutes[timePosition] : undefined,
+        area: '現在地周辺',
+        lat: undefined,
+        lng: undefined,
+        name: undefined,
+        preview: undefined,
+      },
+    })
+  }
+
   return (
     <div className="home-screen">
       <h1 className="brand">いまひま？</h1>
@@ -38,7 +57,7 @@ function Home() {
           <legend><Icon name="clock" />空き時間</legend>
           <TimeRange labels={timeLabels} value={timePosition} onChange={setTimePosition} />
         </fieldset>}
-        <Link className={`${buttonClassName()} button--arrow home-search`} to="/search" search={import.meta.env.DEV ? { preview: 'design' } : {}}><span>この条件で探す</span><ButtonArrow /></Link>
+        <button className={`${buttonClassName()} button--arrow home-search`} type="button" onClick={submitSearch}><span>この条件で探す</span><ButtonArrow /></button>
       </div>
     </div>
   )

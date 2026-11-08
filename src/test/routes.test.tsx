@@ -34,6 +34,25 @@ describe('画面の土台', () => {
     expect(screen.getByRole('button', { name: 'カフェ' }).getAttribute('aria-pressed')).toBe('true')
   })
 
+  it('選択した検索条件を検索結果ページへ渡す', async () => {
+    const router = renderRoute('/')
+    const user = userEvent.setup()
+
+    await screen.findByRole('button', { name: '近くから探す' })
+    await user.click(screen.getByRole('button', { name: 'カフェ' }))
+    await user.click(screen.getByRole('button', { name: '暇つぶしから探す' }))
+    fireEvent.change(screen.getByRole('slider', { name: '空き時間' }), { target: { value: '3' } })
+    await user.click(screen.getByRole('button', { name: 'この条件で探す' }))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/search'))
+    expect(router.state.location.search).toMatchObject({
+      mode: 'free-time',
+      category: 'カフェ',
+      freeTime: 120,
+      area: '現在地周辺',
+    })
+  })
+
   it('詳細URLを直接開き、検索結果とホームに戻れる', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'ok' }) }))
     const router = renderRoute('/places/test-place')

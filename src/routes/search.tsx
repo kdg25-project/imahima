@@ -6,11 +6,30 @@ import { buttonClassName } from '../components/ui/Button'
 import { Icon } from '../components/ui/Icon'
 
 const DesignPreview = import.meta.env.DEV ? lazy(() => import('../components/dev/DesignPreview').then(module => ({ default: module.ResultsPreview }))) : null
-export const Route = createFileRoute('/search')({ component: Search })
+function parseNumber(value: unknown): number | undefined {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : undefined
+}
+
+export const Route = createFileRoute('/search')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    preview: typeof search.preview === 'string' ? search.preview : undefined,
+    mode: search.mode === 'free-time' ? 'free-time' as const : 'nearby' as const,
+    category: typeof search.category === 'string' ? search.category : 'すべて',
+    freeTime: parseNumber(search.freeTime),
+    area: typeof search.area === 'string' ? search.area : '現在地周辺',
+    lat: parseNumber(search.lat),
+    lng: parseNumber(search.lng),
+    name: typeof search.name === 'string' ? search.name : undefined,
+  }),
+  component: Search,
+})
 function Search() {
-  const { preview } = Route.useSearch()
+  const { preview, mode, category, freeTime, area } = Route.useSearch()
   if (preview === 'design' && DesignPreview) return <Suspense fallback={<LoadingState />}><DesignPreview /></Suspense>
   return <ResultsLayout changeAction={<Link className={buttonClassName('secondary', 'small')} to="/"><Icon name="filters" />条件を変更</Link>} map={<div className="map-placeholder">検索地点を選んでください</div>}>
-    <h2>おすすめスポット</h2><EmptyState title="検索条件を選択してください" description="検索機能は準備中です。" action={<Link className={buttonClassName()} to="/">ホームへ戻る</Link>} />
+    <h2>おすすめスポット</h2>
+    <p className="text-muted">{mode === 'free-time' ? '暇つぶしから探す' : '近くから探す'} / {area} / {category}{freeTime ? ` / ${freeTime}分` : ''}</p>
+    <EmptyState title="検索機能を準備中です" description="検索条件を受け取りました。結果表示は次の対応で追加します。" action={<Link className={buttonClassName()} to="/">ホームへ戻る</Link>} />
   </ResultsLayout>
 }
