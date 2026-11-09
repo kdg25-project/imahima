@@ -53,6 +53,20 @@ describe('画面の土台', () => {
     })
   })
 
+  it('近くから探す場合は徒歩15分圏内を渡す', async () => {
+    const router = renderRoute('/')
+    const user = userEvent.setup()
+
+    await screen.findByRole('button', { name: '近くから探す' })
+    await user.click(screen.getByRole('button', { name: 'この条件で探す' }))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/search'))
+    expect(router.state.location.search).toMatchObject({
+      mode: 'nearby',
+      walkMinutes: 15,
+    })
+  })
+
   it('詳細URLを直接開き、検索結果とホームに戻れる', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'ok' }) }))
     const router = renderRoute('/places/test-place')

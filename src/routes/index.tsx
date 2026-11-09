@@ -1,8 +1,21 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { MapPinPlus, Search } from 'lucide-react'
+import {
+  Coffee,
+  Dumbbell,
+  LayoutGrid,
+  MapPinPlus,
+  MapPinned,
+  MoreHorizontal,
+  PartyPopper,
+  Search,
+  ShoppingCart,
+  TreeDeciduous,
+  Utensils,
+  type LucideIcon,
+} from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { buttonClassName, ButtonArrow } from '../components/ui/Button'
-import { CategoryGlyph, Icon } from '../components/ui/Icon'
+import { Icon } from '../components/ui/Icon'
 import { ChoiceChip } from '../components/ui/Chip'
 import { TimeRange } from '../components/ui/TimeRange'
 import { LoadingState } from '../components/feedback/States'
@@ -10,9 +23,20 @@ import { LoadingState } from '../components/feedback/States'
 const UiPreview = import.meta.env.DEV ? lazy(() => import('../components/dev/UiPreview').then(module => ({ default: module.UiPreview }))) : null
 
 export const Route = createFileRoute('/')({ component: Home })
-const categoryLabels = ['すべて', 'カフェ', 'ごはん', '買い物', '遊び', '観光', '運動', '自然', 'その他']
+const categories: { label: string; icon: LucideIcon }[] = [
+  { label: 'すべて', icon: LayoutGrid },
+  { label: 'カフェ', icon: Coffee },
+  { label: 'ごはん', icon: Utensils },
+  { label: '買い物', icon: ShoppingCart },
+  { label: '遊び', icon: PartyPopper },
+  { label: '観光', icon: MapPinned },
+  { label: '運動', icon: Dumbbell },
+  { label: '自然', icon: TreeDeciduous },
+  { label: 'その他', icon: MoreHorizontal },
+]
 const timeLabels = ['~15分', '30分', '1時間', '2時間', '3時間~']
 const timeMinutes = [15, 30, 60, 120, 180] as const
+const walkMinutes = 15
 
 type LocationCandidate = { name: string; area: string; lat: number; lng: number }
 type LocationStatus = 'idle' | 'loading' | 'granted' | 'denied' | 'unsupported' | 'error'
@@ -93,6 +117,7 @@ function Home() {
         preview: undefined,
         mode,
         category,
+        walkMinutes: mode === 'nearby' ? walkMinutes : undefined,
         freeTime: mode === 'free-time' ? timeMinutes[timePosition] : undefined,
         lat: coordinates?.lat,
         lng: coordinates?.lng,
@@ -130,8 +155,8 @@ function Home() {
           </div>}
         </fieldset>
         <fieldset className="choice-group category-field">
-          <legend><CategoryGlyph />カテゴリ</legend>
-          <div className="field-inset category-grid">{categoryLabels.map(label => <ChoiceChip key={label} selected={category === label} onClick={() => setCategory(label)} icon={<CategoryGlyph />}>{label}</ChoiceChip>)}</div>
+          <legend><LayoutGrid className="category-lucide-icon" aria-hidden="true" />カテゴリ</legend>
+          <div className="field-inset category-grid">{categories.map(({ label, icon: CategoryIcon }) => <ChoiceChip key={label} selected={category === label} onClick={() => setCategory(label)} icon={<CategoryIcon className="category-lucide-icon" aria-hidden="true" />}>{label}</ChoiceChip>)}</div>
         </fieldset>
         {mode === 'free-time' && <fieldset className="choice-group time-field">
           <legend><Icon name="clock" />空き時間</legend>

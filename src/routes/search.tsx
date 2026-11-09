@@ -16,6 +16,7 @@ export const Route = createFileRoute('/search')({
     preview: typeof search.preview === 'string' ? search.preview : undefined,
     mode: search.mode === 'free-time' ? 'free-time' as const : 'nearby' as const,
     category: typeof search.category === 'string' ? search.category : 'すべて',
+    walkMinutes: parseNumber(search.walkMinutes),
     freeTime: parseNumber(search.freeTime),
     area: typeof search.area === 'string' ? search.area : '現在地周辺',
     lat: parseNumber(search.lat),
@@ -25,11 +26,11 @@ export const Route = createFileRoute('/search')({
   component: Search,
 })
 function Search() {
-  const { preview, mode, category, freeTime, area } = Route.useSearch()
+  const { preview, mode, category, walkMinutes, freeTime, area } = Route.useSearch()
   if (preview === 'design' && DesignPreview) return <Suspense fallback={<LoadingState />}><DesignPreview /></Suspense>
   return <ResultsLayout changeAction={<Link className={buttonClassName('secondary', 'small')} to="/"><Icon name="filters" />条件を変更</Link>} map={<div className="map-placeholder">検索地点を選んでください</div>}>
     <h2>おすすめスポット</h2>
-    <p className="text-muted">{mode === 'free-time' ? '暇つぶしから探す' : '近くから探す'} / {area} / {category}{freeTime ? ` / ${freeTime}分` : ''}</p>
+    <p className="text-muted">{mode === 'free-time' ? '暇つぶしから探す' : '近くから探す'} / {area} / {category}{mode === 'nearby' && walkMinutes ? ` / 徒歩${walkMinutes}分圏内` : ''}{freeTime ? ` / 空き時間${freeTime}分` : ''}</p>
     <EmptyState title="検索機能を準備中です" description="検索条件を受け取りました。結果表示は次の対応で追加します。" action={<Link className={buttonClassName()} to="/">ホームへ戻る</Link>} />
   </ResultsLayout>
 }
