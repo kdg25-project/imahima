@@ -234,6 +234,13 @@ img {
     border-radius: 2px;
 }
 
+.category-lucide-icon {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    stroke-width: 1.5;
+}
+
 .time-field {
     min-height: 124px;
 }
@@ -578,6 +585,13 @@ img {
 .category-grid .category-glyph i {
     border-width: 1.35px;
     border-radius: 1.8px;
+}
+
+.category-grid .category-lucide-icon {
+    width: 18px;
+    height: 18px;
+    flex-basis: 18px;
+    stroke-width: 1.5;
 }
 
 .choice-chip[aria-pressed='true'] {
