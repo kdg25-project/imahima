@@ -28,7 +28,7 @@ export function ResultsPreview() {
 }
 
 export function DetailsPreview() {
-  return <div className="design-preview"><DetailsLayout backAction={<Link className="back-link" to="/search" search={{ preview: 'design' }} aria-label="検索結果へ戻る"><img src={back} alt="" /></Link>} hero={<div className="hero-placeholder">写真の表示領域</div>}>
+  return <div className="design-preview"><DetailsLayout backAction={<Link className="back-link" to="/search" search={{ preview: 'design', lat: undefined, lng: undefined, name: undefined, area: undefined }} aria-label="検索結果へ戻る"><img src={back} alt="" /></Link>} hero={<div className="hero-placeholder">写真の表示領域</div>}>
     <DetailSummary name="スターバックス" tags={[{ label: 'カフェ' }, { label: '屋内' }, { label: '営業中', tone: 'positive' }]} rating="3.7" reviewCount={503} price="~¥1,000" />
     <div className="detail-info"><DetailRow icon="walk">現在地から320m (徒歩5分)</DetailRow><DetailRow icon="clockDetail" supplement="あと13時間営業">7:00~22:00</DetailRow><DetailRow icon="pinDetail">住所が入ります</DetailRow><DetailRow icon="phone">電話番号が入ります</DetailRow></div>
     <div className="detail-map"><img src={detailMap} alt="Figma表示確認用の静止地図。操作できません。" /><Button variant="secondary" size="small" disabled>地図を広げる</Button></div>
