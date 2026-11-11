@@ -9,7 +9,7 @@ export const Route = createFileRoute('/places/$placeId')({ component: PlaceDetai
 function PlaceDetails() {
   const { preview } = Route.useSearch()
   if (preview === 'design' && DesignPreview) return <Suspense fallback={<LoadingState />}><DesignPreview /></Suspense>
-  return <DetailsLayout backAction={<Link className="back-link" to="/search" search={{ preview: undefined, lat: undefined, lng: undefined, name: undefined, area: '現在地周辺' }} aria-label="検索結果へ戻る"><img src={back} alt="" /></Link>}>
+  return <DetailsLayout backAction={<Link className="back-link" to="/search" search={{ preview: undefined, mode: 'nearby', category: 'すべて', walkMinutes: 15, freeTime: undefined, lat: undefined, lng: undefined, name: undefined, area: '現在地周辺' }} aria-label="検索結果へ戻る"><img src={back} alt="" /></Link>}>
     <h1>スポット詳細</h1><EmptyState title="スポット情報を準備しています" description="名称・営業時間・アクセス情報は、詳細機能の実装後に表示されます。" />
   </DetailsLayout>
 }
