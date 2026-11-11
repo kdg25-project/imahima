@@ -119,6 +119,8 @@ describe('POST /api/routes', () => {
     [{ routes: null }],
     [{ routes: [null] }],
     [{ routes: [{ distanceMeters: '350', duration: '250s' }] }],
+    [{ routes: [{ distanceMeters: 350.5, duration: '250s' }] }],
+    [{ routes: [{ distanceMeters: Number.MAX_SAFE_INTEGER + 1, duration: '250s' }] }],
     [{ routes: [{ distanceMeters: 350, duration: 'invalid' }] }],
     [{ routes: [{ distanceMeters: -1, duration: '250s' }] }],
   ])('returns 502 for a malformed upstream route response', async (payload) => {

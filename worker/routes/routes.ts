@@ -125,7 +125,7 @@ app.post('/api/routes', async (c) => {
   const durationSeconds = parseDurationSeconds(duration)
   if (
     typeof distanceMeters !== 'number' ||
-    !Number.isFinite(distanceMeters) ||
+    !Number.isSafeInteger(distanceMeters) ||
     distanceMeters < 0 ||
     durationSeconds === undefined
   ) {
