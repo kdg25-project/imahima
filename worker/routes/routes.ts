@@ -1,139 +1,138 @@
-import { Hono } from 'hono';
+import { Hono } from 'hono'
 
 type Bindings = {
-  GOOGLE_MAPS_API_KEY: string;
-};
+  GOOGLE_MAPS_API_KEY: string
+}
 
 type Location = {
-  lat: number;
-  lng: number;
-};
+  lat: number
+  lng: number
+}
 
 type RoutesRequestBody = {
-  origin?: Location;
-  destination?: Location;
-  travelMode?: string;
-};
+  origin?: Location
+  destination?: Location
+  travelMode?: string
+}
 
-const app = new Hono<{ Bindings: Bindings }>();
+const app = new Hono<{ Bindings: Bindings }>()
 
-// 緯度経度のバリデーション
-function isValidLocation(loc: unknown): loc is Location {
+function isValidLocation(value: unknown): value is Location {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false
+  }
+
+  const { lat, lng } = value as Record<string, unknown>
   return (
-    typeof loc === 'object' &&
-    loc !== null &&
-    'lat' in loc &&
-    'lng' in loc &&
-    typeof (loc as Record<string, unknown>).lat === 'number' &&
-    !isNaN((loc as Record<string, unknown>).lat as number) &&
-    ((loc as Record<string, unknown>).lat as number) >= -90 &&
-    ((loc as Record<string, unknown>).lat as number) <= 90 &&
-    typeof (loc as Record<string, unknown>).lng === 'number' &&
-    !isNaN((loc as Record<string, unknown>).lng as number) &&
-    ((loc as Record<string, unknown>).lng as number) >= -180 &&
-    ((loc as Record<string, unknown>).lng as number) <= 180
-  );
+    typeof lat === 'number' &&
+    Number.isFinite(lat) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    typeof lng === 'number' &&
+    Number.isFinite(lng) &&
+    lng >= -180 &&
+    lng <= 180
+  )
+}
+
+function isRouteRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function parseDurationSeconds(value: unknown): number | undefined {
+  if (typeof value !== 'string' || !/^\d+(?:\.\d{1,9})?s$/.test(value)) {
+    return undefined
+  }
+
+  const durationSeconds = Number(value.slice(0, -1))
+  return Number.isFinite(durationSeconds) && durationSeconds >= 0
+    ? durationSeconds
+    : undefined
 }
 
 app.post('/api/routes', async (c) => {
-  let body: RoutesRequestBody;
-  
-  // 1. JSON Body の読み取りとバリデーション
+  let body: unknown
   try {
-    body = await c.req.json();
+    body = await c.req.json()
   } catch {
-    return c.json({ error: 'Invalid JSON payload' }, 400);
+    return c.json({ error: 'Invalid JSON payload' }, 400)
   }
 
-  const { origin, destination, travelMode } = body;
+  if (!isRouteRecord(body)) {
+    return c.json({ error: 'Invalid request body' }, 400)
+  }
 
+  const { origin, destination, travelMode } = body as RoutesRequestBody
   if (!isValidLocation(origin) || !isValidLocation(destination)) {
-    return c.json({ error: 'Invalid origin or destination coordinates' }, 400);
+    return c.json({ error: 'Invalid origin or destination coordinates' }, 400)
   }
-
   if (travelMode !== 'WALK') {
-    return c.json({ error: 'Unsupported travelMode. Only WALK is allowed' }, 400);
+    return c.json({ error: 'Unsupported travelMode. Only WALK is allowed' }, 400)
   }
 
-  // APIキーの確認
-  const apiKey = c.env.GOOGLE_MAPS_API_KEY;
+  const apiKey = c.env.GOOGLE_MAPS_API_KEY
   if (!apiKey) {
-    console.error('GOOGLE_MAPS_API_KEY is not configured.');
-    return c.json({ error: 'Internal server error' }, 500);
+    console.error('GOOGLE_MAPS_API_KEY is not configured.')
+    return c.json({ error: 'Internal server error' }, 500)
   }
 
-  // 2. Google Routes API (Compute Routes) の呼び出し
-  const googleRoutesUrl = 'https://routes.googleapis.com/directions/v2:computeRoutes';
-
-  const requestPayload = {
-    origin: {
-      location: {
-        latLng: {
-          latitude: origin.lat,
-          longitude: origin.lng,
-        },
-      },
-    },
-    destination: {
-      location: {
-        latLng: {
-          latitude: destination.lat,
-          longitude: destination.lng,
-        },
-      },
-    },
-    travelMode: 'WALK',
-  };
-
+  let response: Response
   try {
-    const response = await fetch(googleRoutesUrl, {
+    response = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': apiKey,
-        // 必要最小限のフィールドマスクを設定
         'X-Goog-FieldMask': 'routes.distanceMeters,routes.duration',
       },
-      body: JSON.stringify(requestPayload),
-    });
-
-    if (!response.ok) {
-      console.error(`Google Routes API error: status ${response.status}`);
-      return c.json({ error: 'Failed to fetch route from external API' }, 502);
-    }
-
-    const data = (await response.json()) as {
-      routes?: Array<{
-        distanceMeters?: number;
-        duration?: string; // "123s" のような文字列
-      }>;
-    };
-
-    // 経路が見つからない・返却データがない場合
-    if (!data.routes || data.routes.length === 0) {
-      return c.json({ error: 'No route found' }, 404);
-    }
-
-    const route = data.routes[0];
-    const distanceMeters = route.distanceMeters ?? 0;
-
-    // 3. duration (例: "300s") を数値 (秒) に変換
-    let durationSeconds = 0;
-    if (route.duration) {
-      durationSeconds = parseInt(route.duration.replace('s', ''), 10);
-      if (isNaN(durationSeconds)) {
-        durationSeconds = 0;
-      }
-    }
-
-    return c.json({
-      distanceMeters,
-      durationSeconds,
-    });
-  } catch (error) {
-    console.error('Unexpected internal error:', error);
-    return c.json({ error: 'Internal server error' }, 500);
+      body: JSON.stringify({
+        origin: { location: { latLng: { latitude: origin.lat, longitude: origin.lng } } },
+        destination: {
+          location: { latLng: { latitude: destination.lat, longitude: destination.lng } },
+        },
+        travelMode: 'WALK',
+      }),
+    })
+  } catch {
+    return c.json({ error: 'Failed to fetch route from external API' }, 502)
   }
-});
 
-export default app;
+  if (!response.ok) {
+    console.error(`Google Routes API error: status ${response.status}`)
+    return c.json({ error: 'Failed to fetch route from external API' }, 502)
+  }
+
+  let data: unknown
+  try {
+    data = await response.json()
+  } catch {
+    return c.json({ error: 'Failed to fetch route from external API' }, 502)
+  }
+
+  if (!isRouteRecord(data) || !Array.isArray(data.routes)) {
+    return c.json({ error: 'Invalid route data from external API' }, 502)
+  }
+  if (data.routes.length === 0) {
+    return c.json({ error: 'No route found' }, 404)
+  }
+
+  const route = data.routes[0]
+  if (!isRouteRecord(route)) {
+    return c.json({ error: 'Invalid route data from external API' }, 502)
+  }
+
+  const { distanceMeters, duration } = route
+  const durationSeconds = parseDurationSeconds(duration)
+  if (
+    typeof distanceMeters !== 'number' ||
+    !Number.isFinite(distanceMeters) ||
+    distanceMeters < 0 ||
+    durationSeconds === undefined
+  ) {
+    return c.json({ error: 'Invalid route data from external API' }, 502)
+  }
+
+  return c.json({ distanceMeters, durationSeconds })
+})
+
+export default app

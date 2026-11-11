@@ -1,140 +1,152 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import app from '../index'
 
+const env = { GOOGLE_MAPS_API_KEY: 'test-api-key' }
+const validRequest = {
+  origin: { lat: 35.1709, lng: 136.8815 },
+  destination: { lat: 35.168, lng: 136.885 },
+  travelMode: 'WALK',
+}
+
+function request(body: unknown = validRequest) {
+  return app.request(
+    '/api/routes',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    env,
+  )
+}
+
 describe('POST /api/routes', () => {
-  const env = { GOOGLE_MAPS_API_KEY: 'test-api-key' }
+  const fetchMock = vi.fn<typeof fetch>()
 
   beforeEach(() => {
-    vi.restoreAllMocks()
+    fetchMock.mockReset()
+    vi.stubGlobal('fetch', fetchMock)
   })
 
-  // 1. 正常系
-  it('正常なリクエストで距離と所要時間（数値秒）を返す', async () => {
-    const mockApiResponse = {
-      routes: [
-        {
-          distanceMeters: 350,
-          duration: '250s',
-        },
-      ],
-    }
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
 
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      new Response(JSON.stringify(mockApiResponse), { status: 200 })
+  it('returns distance and a fractional protobuf duration in seconds', async () => {
+    fetchMock.mockResolvedValueOnce(
+      Response.json({ routes: [{ distanceMeters: 350, duration: '250.5s' }] }),
     )
 
-    const response = await app.request(
-      '/api/routes',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          origin: { lat: 35.1709, lng: 136.8815 },
-          destination: { lat: 35.1680, lng: 136.8850 },
-          travelMode: 'WALK',
-        }),
-      },
-      env
-    )
+    const response = await request()
 
     expect(response.status).toBe(200)
-    expect(response.headers.get('content-type')).toContain('application/json')
-    expect(await response.json()).toEqual({
-      distanceMeters: 350,
-      durationSeconds: 250,
+    expect(await response.json()).toEqual({ distanceMeters: 350, durationSeconds: 250.5 })
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://routes.googleapis.com/directions/v2:computeRoutes',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'X-Goog-FieldMask': 'routes.distanceMeters,routes.duration',
+        }),
+      }),
+    )
+  })
+
+  it('preserves zero distance and duration values', async () => {
+    fetchMock.mockResolvedValueOnce(
+      Response.json({ routes: [{ distanceMeters: 0, duration: '0s' }] }),
+    )
+
+    const response = await request()
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ distanceMeters: 0, durationSeconds: 0 })
+  })
+
+  it.each([null, [], 'not an object'])('returns 400 for a non-object JSON request body', async (body) => {
+    const response = await request(body)
+
+    expect(response.status).toBe(400)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 for malformed JSON and invalid input fields', async () => {
+    const malformed = await app.request(
+      '/api/routes',
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{' },
+      env,
+    )
+    const invalidCoordinate = await request({
+      ...validRequest,
+      origin: { lat: Number.NaN, lng: 136.8815 },
     })
+    const invalidMode = await request({ ...validRequest, travelMode: 'DRIVE' })
+
+    expect(malformed.status).toBe(400)
+    expect(invalidCoordinate.status).toBe(400)
+    expect(invalidMode.status).toBe(400)
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  // 2. 入力不正（400）
-  it('座標がない・不正な入力の場合は 400 を返す', async () => {
+  it('returns 500 when the server key is absent', async () => {
     const response = await app.request(
       '/api/routes',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          origin: { lat: 35.1709 }, // lng不足
-          destination: { lat: 35.1680, lng: 136.8850 },
-          travelMode: 'WALK',
-        }),
+        body: JSON.stringify(validRequest),
       },
-      env
+      {},
     )
 
-    expect(response.status).toBe(400)
-    expect(response.headers.get('content-type')).toContain('application/json')
+    expect(response.status).toBe(500)
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('travelMode が WALK 以外の場合は 400 を返す', async () => {
-    const response = await app.request(
-      '/api/routes',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          origin: { lat: 35.1709, lng: 136.8815 },
-          destination: { lat: 35.1680, lng: 136.8850 },
-          travelMode: 'DRIVE',
-        }),
-      },
-      env
-    )
+  it.each([
+    ['a rejected fetch', async () => { throw new TypeError('network failure') }],
+    ['a non-success response', async () => new Response('External Error', { status: 500 })],
+    ['an undecodable JSON response', async () => new Response('{', { status: 200 })],
+  ])('returns 502 for %s', async (_caseName, responseFactory) => {
+    fetchMock.mockImplementationOnce(responseFactory)
 
-    expect(response.status).toBe(400)
-  })
-
-  // 3. 外部APIエラー（502）
-  it('Google API がエラーを返した場合は 502 を返す', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      new Response('External Error', { status: 500 })
-    )
-
-    const response = await app.request(
-      '/api/routes',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          origin: { lat: 35.1709, lng: 136.8815 },
-          destination: { lat: 35.1680, lng: 136.8850 },
-          travelMode: 'WALK',
-        }),
-      },
-      env
-    )
+    const response = await request()
 
     expect(response.status).toBe(502)
   })
 
-  // 4. 経路が見つからない場合
-  it('経路が存在しない場合は 404 を返す', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      new Response(JSON.stringify({ routes: [] }), { status: 200 })
-    )
+  it.each([
+    [{ routes: null }],
+    [{ routes: [null] }],
+    [{ routes: [{ distanceMeters: '350', duration: '250s' }] }],
+    [{ routes: [{ distanceMeters: 350, duration: 'invalid' }] }],
+    [{ routes: [{ distanceMeters: -1, duration: '250s' }] }],
+  ])('returns 502 for a malformed upstream route response', async (payload) => {
+    fetchMock.mockResolvedValueOnce(Response.json(payload))
 
-    const response = await app.request(
-      '/api/routes',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          origin: { lat: 35.1709, lng: 136.8815 },
-          destination: { lat: 35.1680, lng: 136.8850 },
-          travelMode: 'WALK',
-        }),
-      },
-      env
-    )
+    const response = await request()
+
+    expect(response.status).toBe(502)
+  })
+
+  it('returns 404 only when the upstream response has no routes', async () => {
+    fetchMock.mockResolvedValueOnce(Response.json({ routes: [] }))
+
+    const response = await request()
 
     expect(response.status).toBe(404)
   })
 
-  // 5. 既存の404チェック（残しておくテスト）
-  it('GET は未登録のため 404 を返す', async () => {
+  it('does not expose the nested /api/routes/api/routes alias', async () => {
+    const response = await app.request('/api/routes/api/routes', { method: 'POST' })
+
+    expect(response.status).toBe(404)
+  })
+
+  it('keeps GET /api/routes unregistered', async () => {
     const response = await app.request('/api/routes')
 
     expect(response.status).toBe(404)
-    expect(response.headers.get('content-type')).toContain('application/json')
     expect(await response.json()).toEqual({ error: 'Not Found' })
   })
 })
