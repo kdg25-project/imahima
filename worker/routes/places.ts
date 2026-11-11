@@ -4,34 +4,27 @@ type Bindings = {
   GOOGLE_PLACES_API_KEY?: string
 }
 
-type GooglePlace = {
-  id?: string
-  displayName?: {
-    text?: string
-  }
-  types?: string[]
-  location?: {
-    latitude: number
-    longitude: number
-  }
-  rating?: number
-  currentOpeningHours?: {
-    openNow?: boolean
-  }
-  photos?: {
-    name: string
-    widthPx: number
-    heightPx: number
-    authorAttributions?: {
-      displayName?: string
-      uri?: string
-      photoUri?: string
-    }[]
-  }[]
+type AuthorAttribution = {
+  displayName?: string
+  uri?: string
+  photoUri?: string
 }
 
-type GoogleNearbyResponse = {
-  places?: GooglePlace[]
+type PlacePhoto = {
+  name: string
+  widthPx: number
+  heightPx: number
+  authorAttributions: AuthorAttribution[]
+}
+
+type PlaceResult = {
+  id: string | null
+  name: string | null
+  category: string | null
+  location: { lat: number; lng: number } | null
+  rating: number | null
+  openNow: boolean | null
+  photos: PlacePhoto[]
 }
 
 const CATEGORY_TYPES = {
@@ -53,6 +46,128 @@ function isCategory(
   value: string,
 ): value is keyof typeof CATEGORY_TYPES {
   return Object.hasOwn(CATEGORY_TYPES, value)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function optionalString(value: unknown) {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'string') throw new Error('Invalid Google Places response')
+  return value
+}
+
+function optionalFiniteNumber(value: unknown) {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error('Invalid Google Places response')
+  }
+  return value
+}
+
+function optionalBoolean(value: unknown) {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'boolean') throw new Error('Invalid Google Places response')
+  return value
+}
+
+function normalizeAttributions(value: unknown): AuthorAttribution[] {
+  if (value === undefined || value === null) return []
+  if (!Array.isArray(value)) throw new Error('Invalid Google Places response')
+
+  return value.map((attribution) => {
+    if (!isRecord(attribution)) throw new Error('Invalid Google Places response')
+    const displayName = optionalString(attribution.displayName)
+    const uri = optionalString(attribution.uri)
+    const photoUri = optionalString(attribution.photoUri)
+    return {
+      ...(displayName === null ? {} : { displayName }),
+      ...(uri === null ? {} : { uri }),
+      ...(photoUri === null ? {} : { photoUri }),
+    }
+  })
+}
+
+function normalizePhotos(value: unknown): PlacePhoto[] {
+  if (value === undefined || value === null) return []
+  if (!Array.isArray(value)) throw new Error('Invalid Google Places response')
+
+  return value.map((photo) => {
+    if (!isRecord(photo)) throw new Error('Invalid Google Places response')
+    const name = optionalString(photo.name)
+    const widthPx = optionalFiniteNumber(photo.widthPx)
+    const heightPx = optionalFiniteNumber(photo.heightPx)
+    if (name === null || widthPx === null || heightPx === null) {
+      throw new Error('Invalid Google Places response')
+    }
+    return {
+      name,
+      widthPx,
+      heightPx,
+      authorAttributions: normalizeAttributions(photo.authorAttributions),
+    }
+  })
+}
+
+function normalizePlaces(
+  data: unknown,
+  category: string | undefined,
+): PlaceResult[] {
+  if (!isRecord(data)) throw new Error('Invalid Google Places response')
+  const rawPlaces = data.places
+  if (rawPlaces === undefined) return []
+  if (!Array.isArray(rawPlaces)) throw new Error('Invalid Google Places response')
+
+  return rawPlaces.map((place) => {
+    if (!isRecord(place)) throw new Error('Invalid Google Places response')
+
+    const id = optionalString(place.id)
+    const displayName = place.displayName
+    if (displayName !== undefined && displayName !== null && !isRecord(displayName)) {
+      throw new Error('Invalid Google Places response')
+    }
+    const name = displayName === undefined || displayName === null
+      ? null
+      : optionalString(displayName.text)
+
+    const types = place.types
+    if (types !== undefined && types !== null && (!Array.isArray(types) || types.some((type) => typeof type !== 'string'))) {
+      throw new Error('Invalid Google Places response')
+    }
+
+    const location = place.location
+    let normalizedLocation: PlaceResult['location'] = null
+    if (location !== undefined && location !== null) {
+      if (!isRecord(location)) throw new Error('Invalid Google Places response')
+      const lat = optionalFiniteNumber(location.latitude)
+      const lng = optionalFiniteNumber(location.longitude)
+      if (lat === null || lng === null) throw new Error('Invalid Google Places response')
+      normalizedLocation = { lat, lng }
+    }
+
+    const openingHours = place.currentOpeningHours
+    if (openingHours !== undefined && openingHours !== null && !isRecord(openingHours)) {
+      throw new Error('Invalid Google Places response')
+    }
+
+    const matchedCategory = Object.entries(CATEGORY_TYPES)
+      .find(([, categoryTypes]) =>
+        categoryTypes.some((type) => (types ?? []).includes(type)),
+      )?.[0]
+
+    return {
+      id,
+      name,
+      category: category ?? matchedCategory ?? null,
+      location: normalizedLocation,
+      rating: optionalFiniteNumber(place.rating),
+      openNow: openingHours === undefined || openingHours === null
+        ? null
+        : optionalBoolean(openingHours.openNow),
+      photos: normalizePhotos(place.photos),
+    }
+  })
 }
 
 const placesRoutes = new Hono<{ Bindings: Bindings }>()
@@ -128,7 +243,7 @@ placesRoutes.get('/', async (c) => {
         : {}),
     }
 
-    let data: GoogleNearbyResponse
+    let places: PlaceResult[]
 
     try {
       const response = await fetch(
@@ -159,51 +274,11 @@ placesRoutes.get('/', async (c) => {
         return c.json({ error: 'Failed to fetch places' }, 502)
       }
 
-      data = (await response.json()) as GoogleNearbyResponse
-
-      if (
-        data === null ||
-        typeof data !== 'object' ||
-        Array.isArray(data) ||
-        (
-          data.places !== undefined &&
-          !Array.isArray(data.places)
-        )
-      ) {
-        return c.json({ error: 'Failed to fetch places' }, 502)
-      }
+      const data: unknown = await response.json()
+      places = normalizePlaces(data, category)
     } catch {
       return c.json({ error: 'Failed to fetch places' }, 502)
     }
-
-    const places = (data.places ?? []).map((place) => {
-      const matchedCategory = Object.entries(CATEGORY_TYPES)
-        .find(([, types]) =>
-          types.some((type) =>
-            (place.types ?? []).includes(type),
-          ),
-        )?.[0]
-
-      return {
-        id: place.id ?? null,
-        name: place.displayName?.text ?? null,
-        category: category ?? matchedCategory ?? null,
-        location: place.location
-          ? {
-              lat: place.location.latitude,
-              lng: place.location.longitude,
-            }
-          : null,
-        rating: place.rating ?? null,
-        openNow: place.currentOpeningHours?.openNow ?? null,
-        photos: (place.photos ?? []).map((photo) => ({
-          name: photo.name,
-          widthPx: photo.widthPx,
-          heightPx: photo.heightPx,
-          authorAttributions: photo.authorAttributions ?? [],
-        })),
-      }
-    })
 
     return c.json({ places })
   } catch {

@@ -271,6 +271,18 @@ describe('GET /api/places', () => {
     { body: [] },
     { body: { places: null } },
     { body: { places: {} } },
+    { body: { places: [null] } },
+    { body: { places: [42] } },
+    { body: { places: [{ ...googlePlace, displayName: 'テストカフェ' }] } },
+    { body: { places: [{ ...googlePlace, displayName: { text: 42 } }] } },
+    { body: { places: [{ ...googlePlace, location: {} }] } },
+    { body: { places: [{ ...googlePlace, types: ['cafe', 42] }] } },
+    { body: { places: [{ ...googlePlace, rating: '4.2' }] } },
+    { body: { places: [{ ...googlePlace, currentOpeningHours: { openNow: 'false' } }] } },
+    { body: { places: [{ ...googlePlace, photos: {} }] } },
+    { body: { places: [{ ...googlePlace, photos: [null] }] } },
+    { body: { places: [{ ...googlePlace, photos: [{ ...photo, widthPx: '800' }] }] } },
+    { body: { places: [{ ...googlePlace, photos: [{ ...photo, authorAttributions: [null] }] }] } },
   ])('不正なレスポンス形式では502を返す: %#', async ({ body }) => {
     fetchMock.mockResolvedValue(Response.json(body))
 
