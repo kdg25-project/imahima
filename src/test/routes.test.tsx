@@ -74,6 +74,7 @@ describe('画面の土台', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'スポット詳細' })).toBeTruthy()
     await user.click(screen.getByRole('link', { name: '検索結果へ戻る' }))
     expect(await screen.findByRole('heading', { level: 1, name: '検索結果' })).toBeTruthy()
+    expect(router.state.location.search).toMatchObject({ mode: 'nearby', category: 'すべて', walkMinutes: 15 })
     await user.click(screen.getByRole('link', { name: '条件を変更' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/'))
   })
