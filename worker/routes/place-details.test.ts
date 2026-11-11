@@ -18,7 +18,12 @@ describe('GET /api/places/:placeId', () => {
       rating: 4.2,
       currentOpeningHours: { openNow: true },
       location: { latitude: 35.17, longitude: 136.88 },
-      photos: [{ name: 'places/ChIJ/photos/1', widthPx: 400, heightPx: 300 }],
+      photos: [{
+        name: 'places/ChIJ/photos/1',
+        widthPx: 400,
+        heightPx: 300,
+        authorAttributions: [{ displayName: '撮影者', uri: 'https://example.com/author' }],
+      }],
     };
 
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
@@ -37,7 +42,12 @@ describe('GET /api/places/:placeId', () => {
       rating: 4.2,
       openNow: true,
       location: { lat: 35.17, lng: 136.88 },
-      photos: [{ name: 'places/ChIJ/photos/1', widthPx: 400, heightPx: 300 }],
+      photos: [{
+        name: 'places/ChIJ/photos/1',
+        widthPx: 400,
+        heightPx: 300,
+        authorAttributions: [{ displayName: '撮影者', uri: 'https://example.com/author' }],
+      }],
     });
   });
 
@@ -59,6 +69,39 @@ describe('GET /api/places/:placeId', () => {
   it('Google API がエラーを返した場合は 502 を返す', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       new Response('Internal Error', { status: 500 })
+    );
+
+    const response = await app.request('/api/places/ChIJxxxxxxxx', {}, env);
+
+    expect(response.status).toBe(502);
+  });
+
+  it('Google API への通信が失敗した場合は 502 を返す', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new TypeError('network down'));
+
+    const response = await app.request('/api/places/ChIJxxxxxxxx', {}, env);
+
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: 'Failed to fetch place details' });
+  });
+
+  it('Google API のJSONをデコードできない場合は 502 を返す', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('{', { status: 200 }));
+
+    const response = await app.request('/api/places/ChIJxxxxxxxx', {}, env);
+
+    expect(response.status).toBe(502);
+  });
+
+  it.each([
+    null,
+    { displayName: 'invalid' },
+    { location: { latitude: '35.17', longitude: 136.88 } },
+    { photos: [null] },
+    { photos: [{ authorAttributions: [null] }] },
+  ])('Google API の壊れた応答 %j は 502 を返す', async (body) => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify(body), { status: 200 })
     );
 
     const response = await app.request('/api/places/ChIJxxxxxxxx', {}, env);
