@@ -17,13 +17,14 @@ import './DesignPreview.css'
 // Entire module (including static map references and sample business data) is dev-only.
 // These are Figma visual fixtures, never API results or an operational map.
 const recommended = { name: 'スターバックス JRゲートタワー店', photos: [store, drinks, coffee], photoCount: 7, category: 'カフェ', price: '~¥1,000', distanceLabel: '徒歩5分(320m)', durationLabel: '15分〜1時間' }
-const detailLink = <Link className={`${buttonClassName('primary', 'small')} button--arrow`} to="/places/$placeId" params={{ placeId: 'preview' }} search={{ preview: 'design' }}><span>詳しく見る</span><ButtonArrow size="small" /></Link>
+const previewSearch = { preview: 'design' as const, mode: 'free-time' as const, category: 'すべて', freeTime: 60, area: '現在地周辺' }
+const detailLink = <Link className={`${buttonClassName('primary', 'small')} button--arrow`} to="/places/$placeId" params={{ placeId: 'preview' }} search={previewSearch}><span>詳しく見る</span><ButtonArrow size="small" /></Link>
 
 export function ResultsPreview() {
   return <div className="design-preview"><ResultsLayout summary="現在地周辺・1時間・すべて" changeAction={<Link className={buttonClassName('secondary', 'small')} to="/"><Icon name="filters" />条件を変更</Link>} map={<img className="design-map" src={resultsMap} alt="Figma表示確認用の静止地図。操作できません。" />}>
     <h2>おすすめスポット</h2><PlaceCard place={recommended} action={detailLink} />
     <h2 className="other-heading">他の候補</h2>
-    <div className="place-list">{['45分〜2時間', '45分〜90分'].map(durationLabel => <PlaceRow key={durationLabel} place={{ name: '8thおいすたーばー', photos: [food], distanceLabel: '徒歩5分(320m)', durationLabel }} action={<Link className="row-link" aria-label="8thおいすたーばーの詳細" to="/places/$placeId" params={{ placeId: 'preview' }} search={{ preview: 'design' }}><Icon name="chevron" /></Link>} />)}</div>
+    <div className="place-list">{['45分〜2時間', '45分〜90分'].map(durationLabel => <PlaceRow key={durationLabel} place={{ name: '8thおいすたーばー', photos: [food], distanceLabel: '徒歩5分(320m)', durationLabel }} action={<Link className="row-link" aria-label="8thおいすたーばーの詳細" to="/places/$placeId" params={{ placeId: 'preview' }} search={previewSearch}><Icon name="chevron" /></Link>} />)}</div>
   </ResultsLayout></div>
 }
 

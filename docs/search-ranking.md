@@ -11,7 +11,7 @@
 
 ## 1. 入力と候補取得
 
-`mode=nearby` と `mode=free-time`、既存の `any` と8カテゴリ（`cafe`、`food`、`shopping`、`entertainment`、`sightseeing`、`park`、`study`、`rest`）を扱う。`category` 省略時は `any`、`radius` は既存どおり既定1000m・0より大きく50000以下の有限値である。
+`mode=nearby` と `mode=free-time`、`any` と9カテゴリ（`cafe`、`food`、`shopping`、`entertainment`、`sightseeing`、`park`、`study`、`rest`、`exercise`）を扱う。`exercise` は2026-11-18にユーザーが選択した、既存画面の「運動」との互換対応として追加した。`category` 省略時は `any`、`radius` は既存どおり既定1000m・0より大きく50000以下の有限値である。
 
 `free-time` の `duration` は必須で、空白・非有限・0以下は400。`nearby` は渡されても `duration` をランキングに使用しない。既存のPlacesカテゴリマッピング（例: `study` が library と cafe を検索）を保持し、正規化後のカテゴリ文字列だけで候補を再除外しない。
 
@@ -52,13 +52,19 @@ wetは precipitation>0 または weatherCode `{51,53,55,56,57,61,63,65,66,67,71,
 | --- | ---: | ---: | ---: |
 | cafe / food / study | +15 | +10 | 0 |
 | park | -15 | -10 | +10 |
-| shopping / entertainment / sightseeing / rest | 0 | 0 | 0 |
+| shopping / entertainment / sightseeing / rest / exercise | 0 | 0 | 0 |
 
 mixedカテゴリは施設単位の屋内外を推測せず中立。reasonは確定した根拠だけを固定順で返す。例: `カテゴリ「food」で検索`、`直線距離の目安 420m`、`徒歩 8分`、`往復は片道徒歩時間の2倍で見積もり、現地で過ごせる目安 44分`、`雨天を考慮したカテゴリ補正 +15点`、`営業中`、`評価 4.2`。unknownを0分や屋内と表現しない。
 
 ## 5. 外部障害と実行上限
 
 Weather、Places、Routesへの各要求は5秒でAbortSignalをabortし、呼び出し元のキャンセルも伝播する。Routesは同時に最大4件ずつ実行する。Routes APIの経路不存在は内部で区別し、`/api/routes` は従来どおり404、検索ではnearbyのnullまたはfree-time除外となる。一方、通信・5xx・JSON/形式異常・timeoutは検索で502。Weather/Placesの外部障害も502、キー未設定等のサーバ設定・想定外の内部例外は500である。
+
+Google Routes の成功レスポンスは、ProtoJSONで空のrepeatedフィールドが省略されうるため、`routes` の省略または空配列を「経路なし」と正規化する。`routes[0].distanceMeters` の省略はimplicit-presenceの既定値0mとして正規化する。一方、routeがあるのに `duration` が欠落・不正、`routes` がnull/配列以外、routeがobject以外の場合は不正な成功payloadとして502である。[Routes API response](https://developers.google.com/maps/documentation/routes/reference/rest/v2/TopLevel/computeRoutes) は空のroutesをno-routeとし、[ProtoJSON presence/defaults](https://protobuf.dev/programming-guides/json/) はempty repeated fieldと0のimplicit-presence値が省略されうることを定める。
+
+## API DTO の説明
+
+`GET /api/search` の各候補は、既存の `reasons: string[]` を後方互換で残し、同じ固定順の根拠を `、` で連結した `reason: string` も返す。根拠が存在しない場合は空文字列であり、未知の徒歩時間・距離・屋内外を補完しない。
 
 ## 6. テストと未決定事項
 

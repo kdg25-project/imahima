@@ -3,6 +3,12 @@
   "name": "imahima",
   "main": "worker/index.ts",
   "compatibility_date": "2026-10-19",
+  "routes": [
+    {
+      "pattern": "imahima.tah5882.dev",
+      "custom_domain": true
+    }
+  ],
   "assets": {
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api", "/api/*"]

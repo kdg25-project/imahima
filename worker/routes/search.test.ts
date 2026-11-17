@@ -92,7 +92,12 @@ describe('GET /api/search の入力チェック', () => {
       expect(response.status).toBe(200)
       expect(await response.json()).toMatchObject({
         weather: { temperature: 24.2, weatherCode: 3, precipitation: 0 },
-        places: [{ id: 'place-1', name: 'テストカフェ', category: 'cafe' }],
+        places: [{
+          id: 'place-1',
+          name: 'テストカフェ',
+          category: 'cafe',
+          reason: expect.any(String),
+        }],
       })
 
       const placeCall = fetchMock.mock.calls.find(
@@ -120,6 +125,23 @@ describe('GET /api/search の入力チェック', () => {
       expect(response.status).toBe(200)
       expect(body.includedTypes).toEqual(['library', 'cafe'])
       expect(body.locationRestriction.circle.radius).toBe(1500)
+    })
+
+    it('既存画面の運動カテゴリと徒歩上限を受け付け、順位を変えずに上限外だけ除外する', async () => {
+      const fetchMock = mockProviders()
+      const response = await app.request(
+        path + '&category=exercise&walkMinutes=4',
+        undefined,
+        env,
+      )
+      const body = await response.json() as { places: unknown[] }
+      const placeCall = fetchMock.mock.calls.find(
+        ([input]) => String(input).startsWith('https://places.googleapis.com/'),
+      )
+
+      expect(response.status).toBe(200)
+      expect(body.places).toEqual([])
+      expect(JSON.parse(String(placeCall?.[1]?.body)).includedTypes).toEqual(['gym', 'fitness_center', 'sports_complex'])
     })
 
     it.each(['weather', 'places'] as const)(

@@ -1,0 +1,5 @@
+# Local-only Worker secret. Never prefix server secrets with VITE_.
+# Places API (New): nearby search, place details, and photo proxy.
+# GOOGLE_PLACES_API_KEY=replace-with-a-server-side-Places-API-key
+# Routes API: walking-distance calculations. This is distinct from the browser Maps key.
+# GOOGLE_MAPS_API_KEY=replace-with-a-server-side-Routes-API-key

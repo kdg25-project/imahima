@@ -1,15 +1,87 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { lazy, Suspense } from 'react'
-import { EmptyState, LoadingState } from '../../components/feedback/States'
-import { DetailsLayout } from '../../components/places/DetailsLayout'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
+import { ErrorState, LoadingState } from '../../components/feedback/States'
+import { DetailRow, DetailsLayout } from '../../components/places/DetailsLayout'
+import { DetailSummary } from '../../components/places/DetailSummary'
+import { PlacePhoto } from '../../components/places/PlacePhoto'
+import { PlaceMap } from '../../components/maps/PlaceMap'
+import { buttonClassName } from '../../components/ui/Button'
+import { Icon } from '../../components/ui/Icon'
+import { displayPlaceCategory, formatDistance, formatWalkingDuration, getPlaceDetails, getWalkingRoute, type PlaceDetails, type WalkingRoute } from '../../lib/api'
+import { hasSearchCoordinates, parseSearchParams } from '../../lib/search-params'
+import { FavoriteButton } from '../../features/favorites'
 import back from '../../assets/icons/back.svg'
 
 const DesignPreview = import.meta.env.DEV ? lazy(() => import('../../components/dev/DesignPreview').then(module => ({ default: module.DetailsPreview }))) : null
-export const Route = createFileRoute('/places/$placeId')({ component: PlaceDetails })
+export const Route = createFileRoute('/places/$placeId')({ validateSearch: parseSearchParams, component: PlaceDetails })
+
+type DetailState = { status: 'loading' } | { status: 'ready'; place: PlaceDetails; route?: WalkingRoute; routeUnavailable: boolean } | { status: 'error' }
+
 function PlaceDetails() {
-  const { preview } = Route.useSearch()
+  const search = Route.useSearch()
+  const { placeId } = Route.useParams()
+  const { lat, lng } = search
+  const [attempt, setAttempt] = useState(0)
+  const [state, setState] = useState<DetailState>({ status: 'loading' })
+  const retry = useCallback(() => setAttempt((value) => value + 1), [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const load = async () => {
+      await Promise.resolve()
+      if (controller.signal.aborted) return
+      setState({ status: 'loading' })
+      try {
+        const place = await getPlaceDetails(placeId, { signal: controller.signal })
+        if (controller.signal.aborted) return
+        let route: WalkingRoute | undefined
+        let routeUnavailable = false
+        if (hasSearchCoordinates(search) && lat !== undefined && lng !== undefined && place.location) {
+          try {
+            route = await getWalkingRoute({ origin: { lat, lng }, destination: place.location, signal: controller.signal })
+          } catch {
+            if (controller.signal.aborted) return
+            routeUnavailable = true
+          }
+        }
+        if (!controller.signal.aborted) setState({ status: 'ready', place, route, routeUnavailable })
+      } catch {
+        if (!controller.signal.aborted) setState({ status: 'error' })
+      }
+    }
+    void load()
+    return () => controller.abort()
+  }, [attempt, lat, lng, placeId, search])
+
+  const backAction = search.from === 'favorites'
+    ? <Link className="back-link" to="/favorites" aria-label="お気に入りへ戻る"><img src={back} alt="" /></Link>
+    : <Link className="back-link" to="/search" search={{ ...search, preview: undefined, from: undefined }} aria-label="検索結果へ戻る"><img src={back} alt="" /></Link>
+  const preview = search.preview
   if (preview === 'design' && DesignPreview) return <Suspense fallback={<LoadingState />}><DesignPreview /></Suspense>
-  return <DetailsLayout backAction={<Link className="back-link" to="/search" search={{ preview: undefined, mode: 'nearby', category: 'すべて', walkMinutes: 15, freeTime: undefined, lat: undefined, lng: undefined, name: undefined, area: '現在地周辺' }} aria-label="検索結果へ戻る"><img src={back} alt="" /></Link>}>
-    <h1>スポット詳細</h1><EmptyState title="スポット情報を準備しています" description="名称・営業時間・アクセス情報は、詳細機能の実装後に表示されます。" />
+  if (state.status === 'loading') return <DetailsLayout backAction={backAction} hero={<div className="hero-placeholder">スポット情報を読み込んでいます</div>}><LoadingState title="スポット情報を読み込んでいます" /></DetailsLayout>
+  if (state.status === 'error') return <DetailsLayout backAction={backAction} hero={<div className="hero-placeholder">スポットの写真は利用できません</div>}><ErrorState title="スポット情報を取得できませんでした" onRetry={retry} /></DetailsLayout>
+  const { place, route, routeUnavailable } = state
+  const tags = [
+    ...(place.category ? [{ label: displayPlaceCategory(place.category) ?? place.category }] : []),
+    ...(place.openNow === true ? [{ label: '営業中', tone: 'positive' as const }] : place.openNow === false ? [{ label: '営業時間外' }] : []),
+  ]
+  const directions = new URLSearchParams({
+    api: '1',
+    destination: place.location ? `${place.location.lat},${place.location.lng}` : place.name ?? placeId,
+    destination_place_id: place.id ?? placeId,
+    travelmode: 'walking',
+  })
+  if (hasSearchCoordinates(search)) directions.set('origin', `${search.lat},${search.lng}`)
+  return <DetailsLayout backAction={backAction} hero={place.photos[0] ? <PlacePhoto photo={place.photos[0]} alt={`${place.name ?? 'スポット'}の写真`} className="detail-hero-photo" width={1200} /> : <div className="hero-placeholder">スポットの写真は利用できません</div>}>
+    <DetailSummary name={place.name ?? '名称未設定のスポット'} tags={tags} rating={place.rating?.toFixed(1)} />
+    {place.id && <div className="detail-favorite"><FavoriteButton placeId={place.id} className="favorite-button" /></div>}
+    <div className="detail-info">
+      {place.address && <DetailRow icon="pinDetail">{place.address}</DetailRow>}
+      {route && <DetailRow icon="walk" supplement={formatWalkingDuration(route.durationSeconds)}>{search.name ?? search.area}から{formatDistance(route.distanceMeters)}</DetailRow>}
+      {!route && hasSearchCoordinates(search) && routeUnavailable && <DetailRow icon="walk">徒歩経路を取得できませんでした</DetailRow>}
+      {!hasSearchCoordinates(search) && <DetailRow icon="walk">検索地点を選ぶと徒歩経路を確認できます</DetailRow>}
+    </div>
+    <PlaceMap className="detail-map" place={{ name: place.name, location: place.location }} />
+    <a className={`${buttonClassName()} route-button`} href={`https://www.google.com/maps/dir/?${directions}`} target="_blank" rel="noreferrer"><Icon name="direction" />経路を検索</a>
   </DetailsLayout>
 }

@@ -12,7 +12,17 @@ npm ci
 npm run dev
 ```
 
-表示された URL を開いてください。ホームの「この条件で探す」から、Figma表示確認用の検索結果・詳細へ移動できます。接続確認は開発用の `/?preview=states` にあります。
+表示された URL を開き、ホームで検索地点・カテゴリ・モードを選んで「この条件で探す」を押してください。検索結果から詳細へ進み、お気に入りはブラウザー内に保存されます。
+
+### Google Maps API（任意）
+
+キーが未設定でも画面枠と外部 Google Maps リンクは表示されますが、検索・詳細・徒歩時間の実データ取得はエラー状態になります。キーや Google の短命な写真 URL を画面へ直接出す実装にはしません。
+
+- Worker の `.dev.vars` に `GOOGLE_PLACES_API_KEY` を設定します。これは Places API (New) の検索・詳細・写真用**サーバー秘密情報**です。詳細・写真では既存の `GOOGLE_MAPS_API_KEY` も後方互換として読めますが、新規設定では `GOOGLE_PLACES_API_KEY` を使ってください。
+- Worker の `.dev.vars` に `GOOGLE_MAPS_API_KEY` を設定します。これは徒歩経路を計算する Routes API 用の**サーバー秘密情報**です。Places 用のキーとは分離し、本番ではそれぞれ Workers の Secret として設定します。
+- ブラウザー地図は `.env.local` の `VITE_GOOGLE_MAPS_API_KEY` を使います。これは Maps JavaScript API 専用の公開キーで、Google Cloud 側で HTTP リファラー制限を必ず設定します。Worker のキーを `VITE_` で公開してはいけません。
+- Google Cloud で Places API (New)、Routes API、Maps JavaScript API を必要なキーごとに有効化します。写真は `GET /api/place-photos?name=places/.../photos/...&maxWidthPx=800` が一度だけ安全に中継し、保存・キャッシュしません。
+- 写真の提供者表示は API が返した attribution をそのまま表示します。写真リソース名・メタデータ・画像バイトを localStorage やアプリのキャッシュへ保存しません。
 
 ## コマンド
 
@@ -31,7 +41,9 @@ npm run dev
 - `worker/`: Hono API。外部 API のキー等はここでのみ扱います。
 - `shared/`: クライアントとサーバーで共有する型。
 
-現在は環境構築のみで、検索、地点情報、天気、認証、データベース、Google Places / Routes 連携は未実装です。将来の秘密情報はクライアントへ含めず、Workers の秘密情報として設定してください。
+現在のMVPは、地点検索・天気・Places検索/詳細・徒歩経路・Google Maps表示・ブラウザー内のお気に入りを実装しています。認証・サーバー側データベース・共有お気に入りは対象外です。秘密情報はクライアントへ含めず、Workers の秘密情報として設定してください。
+
+検索結果は `GET /api/search` が一度に返す天気・徒歩経路・ランキングを使用します。画面側で順位を再計算しません。`nearby` の `walkMinutes` は既存画面の徒歩圏内条件との互換用の任意パラメータで、指定時は徒歩経路があり指定分以内の候補だけを、サーバーのおすすめ順を保ったまま返します。既存画面の「運動」は今回の互換拡張として API カテゴリ `exercise` に対応しています。
 
 Workers の互換日付は、ローカル実行に使用する workerd が対応する `2026-10-19` に設定しています。
 
@@ -51,18 +63,18 @@ OSステータスバー62pxをWeb UIから除外したため、各領域の縦�
 
 ### 確認方法
 
-`npm run dev`で起動した開発環境では次の表示を確認できます。
+`npm run dev`で起動した開発環境では次の画面を確認できます。Google APIを使う経路は、キーを設定してからホームの操作で開いてください。
 
 | URL | 内容 |
 | --- | --- |
-| `/` | Figmaと同じ配置のホーム。選択は画面内の表示だけを更新 |
-| `/search?preview=design` | Figmaと同じカード・写真列・候補一覧の表示例 |
-| `/places/preview?preview=design` | Figmaと同じタグ・情報行・地図枠・経路ボタンの表示例 |
-| `/?preview=states` | 共通状態UIと既存health接続確認・再試行 |
+| `/` | 検索地点、カテゴリ、空き時間を選ぶホーム |
+| `/search` | ホームから渡された条件での検索結果。直接開く場合は地点の緯度・経度を含む検索パラメータが必要 |
+| `/places/:placeId` | 検索結果またはお気に入りから開く施設詳細と外部経路リンク |
+| `/favorites` | ブラウザー内に保存した Place ID を再取得して表示する一覧 |
 
-ホームの検索ボタンは開発時のみ表示例へ進みます。サンプルの店舗情報・写真・静止地図は`src/components/dev/`に隔離し、本番ビルドには含めません。静止地図は見た目の確認専用で、地図機能ではありません。地図拡大と経路開始の操作は無効です。
+ホームの検索ボタンは、選択した地点と条件を`/search`へ渡して実データを取得します。Google Maps JavaScript APIのキーを設定した場合は地図を表示し、未設定時は外部Google Mapsリンクへ切り替わります。`src/components/dev/`は開発用の表示確認にだけ使います。
 
-本番の`/search`と`/places/$placeId`は同じ画面枠に空表示を渡し、未取得の店舗データを補完しません。`preview`クエリは開発時のみ有効です。
+本番の`/search`と`/places/$placeId`は、Google APIから取得した値だけを表示します。お気に入りにはPlace IDと保存日時だけを保存し、施設名・住所・写真などのGoogleデータは保存しません。`preview`クエリは開発時のみ表示確認に使えます。
 
 ### 画面担当向けの使い方
 

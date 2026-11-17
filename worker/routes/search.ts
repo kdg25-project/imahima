@@ -11,6 +11,7 @@ const searchCategories = new Set([
   'shopping',
   'entertainment',
   'sightseeing',
+  'exercise',
   'park',
   'study',
   'rest',
@@ -151,12 +152,21 @@ searchRoutes.get('/',async (c) => {
 
   const durationText = c.req.query('duration')
   const duration = parseFiniteNumber(durationText)
+  const walkMinutesText = c.req.query('walkMinutes')
+  const walkMinutes = parseFiniteNumber(walkMinutesText)
 
   if (
     mode === 'free-time' &&
     (durationText === undefined || duration === undefined || duration <= 0)
   ) {
     return c.json({ error: 'Invalid duration' }, 400)
+  }
+  if (
+    mode === 'nearby' &&
+    walkMinutesText !== undefined &&
+    (walkMinutes === undefined || walkMinutes <= 0)
+  ) {
+    return c.json({ error: 'Invalid walkMinutes' }, 400)
   }
 
   try {
@@ -225,20 +235,25 @@ searchRoutes.get('/',async (c) => {
       if (route.kind === 'failure') throw new RouteProviderFailure()
       return route.kind === 'ok' ? route : null
     }, c.req.raw.signal)
+    const rankedPlaces = rankPlaces({
+      places,
+      routes,
+      weather: weather as {
+        temperature: number
+        weatherCode: number
+        precipitation: number
+      },
+      mode,
+      category,
+      duration,
+    })
     return c.json({
       weather,
-      places: rankPlaces({
-        places,
-        routes,
-        weather: weather as {
-          temperature: number
-          weatherCode: number
-          precipitation: number
-        },
-        mode,
-        category,
-        duration,
-      }),
+      // A specified walking bound is an existing nearby-screen condition.
+      // Keep the ranker's order and the old unbounded API behavior when absent.
+      places: walkMinutes === undefined || mode !== 'nearby'
+        ? rankedPlaces
+        : rankedPlaces.filter((place) => place.walkingDurationSeconds !== null && place.walkingDurationSeconds <= walkMinutes * 60),
     }, 200)
   } catch (error) {
     if (error instanceof RouteProviderConfigurationError) {

@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 
 type Bindings = {
-  GOOGLE_MAPS_API_KEY: string;
+  GOOGLE_PLACES_API_KEY?: string;
+  GOOGLE_MAPS_API_KEY?: string;
 };
 
 // Places API (New) のレスポンス型定義
@@ -114,14 +115,15 @@ app.get('/:placeId', async (c) => {
     return c.json({ error: 'Invalid placeId' }, 400);
   }
 
-  const apiKey = c.env.GOOGLE_MAPS_API_KEY;
+  const apiKey = c.env.GOOGLE_PLACES_API_KEY ?? c.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) {
     console.error('GOOGLE_MAPS_API_KEY is not configured.');
     return c.json({ error: 'Internal server error' }, 500);
   }
 
   // 2. Google Places API (New) - Place Details の呼び出し
-  const url = `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`;
+  const url = new URL(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`);
+  url.searchParams.set('languageCode', 'ja');
 
   let response: Response
   try {

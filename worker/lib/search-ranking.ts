@@ -17,6 +17,7 @@ export type RankedPlace = PlaceResult & {
   walkingDurationSeconds: number | null
   availableStayMinutes: number | null
   score: number
+  reason: string
   reasons: string[]
 }
 
@@ -166,6 +167,7 @@ export function rankPlaces({
         walkingDurationSeconds: route?.durationSeconds ?? null,
         availableStayMinutes: mode === 'free-time' ? availableStayMinutes : null,
         score,
+        reason: reasons.join('、'),
         reasons,
       },
       index,
