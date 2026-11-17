@@ -68,17 +68,22 @@ export async function getWalkingRoute({
         if (!response.ok) return { kind: 'failure' } as const
 
         const data: unknown = await response.json()
-        if (!isRecord(data) || !Array.isArray(data.routes)) {
+        if (!isRecord(data)) {
           return { kind: 'failure' } as const
         }
+        if (data.routes === undefined) return { kind: 'not-found' } as const
+        if (!Array.isArray(data.routes)) return { kind: 'failure' } as const
         if (data.routes.length === 0) return { kind: 'not-found' } as const
 
         const route = data.routes[0]
+        if (!isRecord(route)) return { kind: 'failure' } as const
+
+        const distanceMeters =
+          route.distanceMeters === undefined ? 0 : route.distanceMeters
         if (
-          !isRecord(route) ||
-          typeof route.distanceMeters !== 'number' ||
-          !Number.isSafeInteger(route.distanceMeters) ||
-          route.distanceMeters < 0
+          typeof distanceMeters !== 'number' ||
+          !Number.isSafeInteger(distanceMeters) ||
+          distanceMeters < 0
         ) {
           return { kind: 'failure' } as const
         }
@@ -86,7 +91,7 @@ export async function getWalkingRoute({
         const durationSeconds = parseDurationSeconds(route.duration)
         return durationSeconds === undefined
           ? ({ kind: 'failure' } as const)
-          : { kind: 'ok', distanceMeters: route.distanceMeters, durationSeconds }
+          : { kind: 'ok', distanceMeters, durationSeconds }
       },
       { signal },
     )

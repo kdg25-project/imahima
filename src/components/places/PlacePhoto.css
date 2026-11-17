@@ -1,0 +1,37 @@
+.place-photo {
+  margin: 0;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #f6f4f1;
+}
+
+.place-photo > img,
+.place-photo__fallback {
+  display: block;
+  width: 100%;
+  min-height: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.place-photo__fallback {
+  display: grid;
+  place-items: center;
+  color: #727272;
+  border: 1px solid #d4d4d4;
+  font-size: 13px;
+}
+
+.place-photo__attributions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  padding: 6px 10px;
+  color: #727272;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.place-photo__attributions a {
+  color: inherit;
+}

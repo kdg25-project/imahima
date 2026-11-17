@@ -38,6 +38,7 @@ const CATEGORY_TYPES = {
     'movie_theater',
   ],
   sightseeing: ['tourist_attraction', 'museum'],
+  exercise: ['gym', 'fitness_center', 'sports_complex'],
   park: ['park'],
   study: ['library', 'cafe'],
   rest: ['cafe', 'park'],

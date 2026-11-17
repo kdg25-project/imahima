@@ -17,11 +17,11 @@ export function PlaceMeta({ distanceLabel, durationLabel }: Pick<PlaceCardData, 
   return <div className="place-meta">{distanceLabel && <span><Icon name="pinSmall" />{distanceLabel}</span>}{durationLabel && <span><Icon name="clockSmall" />{durationLabel}</span>}</div>
 }
 
-export function PlaceCard({ place, action }: { place: PlaceCardData; action?: ReactNode }) {
+export function PlaceCard({ place, action, children, media }: { place: PlaceCardData; action?: ReactNode; children?: ReactNode; media?: ReactNode }) {
   return <article className="place-card">
-    {!!place.photos?.length && <div className="photo-strip">{place.photos.slice(0, 3).map((photo, index) => <div className="photo-strip__slot" key={`${photo}-${index}`}><img src={photo} alt={`${place.name}の写真 ${index + 1}`} />{index === 2 && place.photoCount && place.photoCount > 3 ? <span className="photo-strip__more">+{place.photoCount - 3}</span> : null}</div>)}</div>}
+    {media ?? (!!place.photos?.length && <div className="photo-strip">{place.photos.slice(0, 3).map((photo, index) => <div className="photo-strip__slot" key={`${photo}-${index}`}><img src={photo} alt={`${place.name}の写真 ${index + 1}`} />{index === 2 && place.photoCount && place.photoCount > 3 ? <span className="photo-strip__more">+{place.photoCount - 3}</span> : null}</div>)}</div>)}
     <h3>{place.name}</h3><PlaceMeta {...place} />
-    <div className="place-card__footer"><div className="cluster">{place.category && <Chip>{place.category}</Chip>}{place.price && <Chip>{place.price}</Chip>}</div>{action}</div>
+    <div className="place-card__footer"><div className="cluster">{place.category && <Chip>{place.category}</Chip>}{place.price && <Chip>{place.price}</Chip>}</div>{action}</div>{children}
   </article>
 }
 

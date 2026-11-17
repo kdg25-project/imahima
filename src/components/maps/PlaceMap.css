@@ -1,0 +1,75 @@
+.place-map {
+  overflow: hidden;
+  border: 1px solid #d4d4d4;
+  border-radius: 20px;
+  background: #f6f4f1;
+}
+
+.place-map__canvas {
+  width: 100%;
+  min-height: 148px;
+}
+
+.place-map__notice {
+  display: grid;
+  gap: 8px;
+  min-height: 148px;
+  padding: 24px;
+  place-content: center start;
+  color: #727272;
+  font-size: 14px;
+}
+
+.place-map__notice a,
+.place-map__places a {
+  color: #3d3d3d;
+  text-underline-offset: 2px;
+}
+
+.place-map__places {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 14px;
+  list-style: none;
+  background: #fff;
+}
+
+.place-map__places li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.place-map__places button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #3d3d3d;
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.place-map__places a,
+.place-map__attribution,
+.place-map__origin {
+  font-size: 12px;
+}
+
+.place-map__origin {
+  margin: 0;
+  padding: 10px 14px 0;
+  color: #727272;
+  background: #fff;
+}
+
+.place-map__attribution {
+  margin: 0;
+  padding: 0 14px 10px;
+  color: #727272;
+  background: #fff;
+}

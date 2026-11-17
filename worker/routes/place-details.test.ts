@@ -34,6 +34,7 @@ describe('GET /api/places/:placeId', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('application/json');
+    expect(String(vi.mocked(globalThis.fetch).mock.calls[0]?.[0])).toBe('https://places.googleapis.com/v1/places/ChIJxxxxxxxx?languageCode=ja');
     expect(await response.json()).toEqual({
       id: 'ChIJxxxxxxxx',
       name: '○○カフェ',
@@ -49,6 +50,34 @@ describe('GET /api/places/:placeId', () => {
         authorAttributions: [{ displayName: '撮影者', uri: 'https://example.com/author' }],
       }],
     });
+  });
+
+  it('新しいPlacesキーを優先し、従来のMapsキーにも後方互換で対応する', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'place-id' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'place-id' }), { status: 200 }))
+
+    const withBothKeys = await app.request('/api/places/place-id', {}, {
+      GOOGLE_PLACES_API_KEY: 'new-places-key',
+      GOOGLE_MAPS_API_KEY: 'legacy-maps-key',
+    })
+    expect(withBothKeys.status).toBe(200)
+    expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get('X-Goog-Api-Key')).toBe('new-places-key')
+
+    const withLegacyKey = await app.request('/api/places/place-id', {}, {
+      GOOGLE_MAPS_API_KEY: 'legacy-maps-key',
+    })
+    expect(withLegacyKey.status).toBe(200)
+    expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get('X-Goog-Api-Key')).toBe('legacy-maps-key')
+  });
+
+  it('Placesキーが未設定なら外部リクエストをせず設定エラーを返す', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+
+    const response = await app.request('/api/places/place-id')
+
+    expect(response.status).toBe(500)
+    expect(fetchMock).not.toHaveBeenCalled()
   });
 
   // 2. 存在しない POI (404)

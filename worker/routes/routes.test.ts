@@ -63,6 +63,15 @@ describe('POST /api/routes', () => {
     expect(await response.json()).toEqual({ distanceMeters: 0, durationSeconds: 0 })
   })
 
+  it('normalizes an omitted ProtoJSON default distance to zero', async () => {
+    fetchMock.mockResolvedValueOnce(Response.json({ routes: [{ duration: '0s' }] }))
+
+    const response = await request()
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ distanceMeters: 0, durationSeconds: 0 })
+  })
+
   it.each([null, [], 'not an object'])('returns 400 for a non-object JSON request body', async (body) => {
     const response = await request(body)
 
@@ -133,6 +142,14 @@ describe('POST /api/routes', () => {
 
   it('returns 404 only when the upstream response has no routes', async () => {
     fetchMock.mockResolvedValueOnce(Response.json({ routes: [] }))
+
+    const response = await request()
+
+    expect(response.status).toBe(404)
+  })
+
+  it('returns 404 when the successful ProtoJSON response omits its empty routes field', async () => {
+    fetchMock.mockResolvedValueOnce(Response.json({}))
 
     const response = await request()
 

@@ -54,6 +54,7 @@ describe('rankPlaces', () => {
       availableStayMinutes: 44,
     })
     expect(result[0].reasons).toContain('往復は片道徒歩時間の2倍で見積もり、現地で過ごせる目安 44分')
+    expect(result[0].reason).toBe(result[0].reasons.join('、'))
   })
 
   it('free-timeでは経路なし、滞在時間不足を除外し、等号は採用する', () => {
@@ -81,6 +82,7 @@ describe('rankPlaces', () => {
       walkingDurationSeconds: null,
       availableStayMinutes: null,
     })
+    expect(result[0].reason).toBe(result[0].reasons.join('、'))
   })
 
   it.each([
