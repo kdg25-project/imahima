@@ -52,7 +52,7 @@ describe('主要画面フロー', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url.startsWith('/api/search?')) return json({ weather: { temperature: 21, weatherCode: 1, precipitation: 0 }, places: [
-        { id: 'near', name: '近いカフェ', category: 'cafe', location: { lat: 35.171, lng: 136.881 }, rating: 4.2, openNow: true, photos: [], distance: 280, walkingDistanceMeters: 320, walkingDurationSeconds: 300, availableStayMinutes: null, score: 67, reason: '近くて行きやすい', reasons: [] },
+        { id: 'near', name: '近いカフェ', category: 'cafe', location: { lat: 35.171, lng: 136.881 }, rating: 4.2, openNow: true, photos: [{ name: 'places/near/photos/photo-1', authorAttributions: [{ displayName: '写真提供者', uri: 'https://example.com/attribution' }] }], distance: 280, walkingDistanceMeters: 320, walkingDurationSeconds: 300, availableStayMinutes: null, score: 67, reason: '近くて行きやすい', reasons: [] },
       ] })
       return json({ error: 'not found' }, false)
     }))
@@ -61,6 +61,7 @@ describe('主要画面フロー', () => {
     expect(screen.queryByRole('heading', { level: 3, name: '遠いカフェ' })).toBeNull()
     await userEvent.setup().click(screen.getByRole('button', { name: '近いカフェ' }))
     expect(document.querySelector('.place-card-selection')).not.toBeNull()
+    expect(document.activeElement).toBe(screen.getByRole('link', { name: '詳細を見る' }))
     await userEvent.setup().click(screen.getByRole('link', { name: '詳細を見る' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/places/near'))
     expect(router.state.location.search).toMatchObject({ lat: 35.17, lng: 136.88, area: '名古屋駅' })
