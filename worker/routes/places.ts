@@ -17,7 +17,7 @@ type PlacePhoto = {
   authorAttributions: AuthorAttribution[]
 }
 
-type PlaceResult = {
+export type PlaceResult = {
   id: string | null
   name: string | null
   category: string | null
