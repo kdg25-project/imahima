@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { withUpstreamTimeout } from '../lib/upstream'
 
 const weatherRoutes = new Hono()
 
@@ -47,13 +48,15 @@ weatherRoutes.get('/', async (c) => {
     let data: unknown
 
     try {
-      const response = await fetch(url)
+      data = await withUpstreamTimeout(async (signal) => {
+        const response = await fetch(url, { signal })
 
-      if (!response.ok) {
-        throw new Error('Open-Meteo request failed')
-      }
+        if (!response.ok) {
+          throw new Error('Open-Meteo request failed')
+        }
 
-      data = await response.json()
+        return response.json()
+      }, { signal: c.req.raw.signal })
     } catch {
       return c.json({ error: 'Failed to fetch weather' }, 502)
     }

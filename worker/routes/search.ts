@@ -1,6 +1,8 @@
 import { Hono } from 'hono'
 import placesRoutes, { type PlaceResult } from './places'
 import weatherRoutes from './weather'
+import { getWalkingRoute } from '../lib/route-provider'
+import { rankPlaces } from '../lib/search-ranking'
 
 const searchCategories = new Set([
   'any',
@@ -64,9 +66,53 @@ function calculateDistanceMeters(
 
 type Bindings = {
   GOOGLE_PLACES_API_KEY?: string
+  GOOGLE_MAPS_API_KEY?: string
 }
 
 const searchRoutes = new Hono<{ Bindings: Bindings }>()
+
+class RouteProviderFailure extends Error {}
+class RouteProviderConfigurationError extends Error {}
+
+async function mapWithConcurrency<T, Result>(
+  values: T[],
+  limit: number,
+  mapper: (value: T, signal: AbortSignal) => Promise<Result>,
+  callerSignal?: AbortSignal,
+): Promise<Result[]> {
+  const results = new Array<Result>(values.length)
+  let nextIndex = 0
+  let firstError: unknown
+  const controller = new AbortController()
+  const abort = () => controller.abort()
+
+  if (callerSignal?.aborted) abort()
+  else callerSignal?.addEventListener('abort', abort, { once: true })
+
+  async function worker() {
+    while (!firstError && !controller.signal.aborted && nextIndex < values.length) {
+      const index = nextIndex++
+      try {
+        results[index] = await mapper(values[index], controller.signal)
+      } catch (error) {
+        if (!firstError) {
+          firstError = error
+          controller.abort()
+        }
+      }
+    }
+  }
+
+  try {
+    await Promise.all(
+      Array.from({ length: Math.min(limit, values.length) }, () => worker()),
+    )
+  } finally {
+    callerSignal?.removeEventListener('abort', abort)
+  }
+  if (firstError) throw firstError
+  return results
+}
 
 searchRoutes.get('/',async (c) => {
   const lat = parseFiniteNumber(c.req.query('lat'))
@@ -108,8 +154,7 @@ searchRoutes.get('/',async (c) => {
 
   if (
     mode === 'free-time' &&
-    durationText !== undefined &&
-    (duration === undefined || duration <= 0)
+    (durationText === undefined || duration === undefined || duration <= 0)
   ) {
     return c.json({ error: 'Invalid duration' }, 400)
   }
@@ -129,8 +174,20 @@ searchRoutes.get('/',async (c) => {
     }
 
     const [weatherResponse, placesResponse] = await Promise.all([
-      weatherRoutes.request('/?' + weatherQuery.toString(), undefined, c.env),
-      placesRoutes.request('/?' + placesQuery.toString(), undefined, c.env),
+      weatherRoutes.request(
+        new Request('http://internal/?' + weatherQuery.toString(), {
+          signal: c.req.raw.signal,
+        }),
+        undefined,
+        c.env,
+      ),
+      placesRoutes.request(
+        new Request('http://internal/?' + placesQuery.toString(), {
+          signal: c.req.raw.signal,
+        }),
+        undefined,
+        c.env,
+      ),
     ])
 
     if (!weatherResponse.ok) {
@@ -156,8 +213,40 @@ searchRoutes.get('/',async (c) => {
       distance: calculateDistanceMeters(lat, lng, place.location),
     }))
 
-    return c.json({ weather, places }, 200)
-  } catch {
+    const routes = await mapWithConcurrency(places, 4, async (place, signal) => {
+      if (!place.location || place.distance === null) return null
+      const route = await getWalkingRoute({
+        origin: { lat, lng },
+        destination: place.location,
+        apiKey: c.env.GOOGLE_MAPS_API_KEY,
+        signal,
+      })
+      if (route.kind === 'configuration') throw new RouteProviderConfigurationError()
+      if (route.kind === 'failure') throw new RouteProviderFailure()
+      return route.kind === 'ok' ? route : null
+    }, c.req.raw.signal)
+    return c.json({
+      weather,
+      places: rankPlaces({
+        places,
+        routes,
+        weather: weather as {
+          temperature: number
+          weatherCode: number
+          precipitation: number
+        },
+        mode,
+        category,
+        duration,
+      }),
+    }, 200)
+  } catch (error) {
+    if (error instanceof RouteProviderConfigurationError) {
+      return c.json({ error: 'Internal Server Error' }, 500)
+    }
+    if (error instanceof RouteProviderFailure) {
+      return c.json({ error: 'Failed to fetch routes' }, 502)
+    }
     return c.json({ error: 'Internal Server Error' }, 500)
   }
 })
