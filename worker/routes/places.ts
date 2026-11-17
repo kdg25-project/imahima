@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { withUpstreamTimeout } from '../lib/upstream'
 
 type Bindings = {
   GOOGLE_PLACES_API_KEY?: string
@@ -17,7 +18,7 @@ type PlacePhoto = {
   authorAttributions: AuthorAttribution[]
 }
 
-type PlaceResult = {
+export type PlaceResult = {
   id: string | null
   name: string | null
   category: string | null
@@ -246,9 +247,10 @@ placesRoutes.get('/', async (c) => {
     let places: PlaceResult[]
 
     try {
-      const response = await fetch(
-        'https://places.googleapis.com/v1/places:searchNearby',
-        {
+      const data: unknown = await withUpstreamTimeout(async (signal) => {
+        const response = await fetch(
+          'https://places.googleapis.com/v1/places:searchNearby',
+          {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -266,15 +268,17 @@ placesRoutes.get('/', async (c) => {
               'places.photos.authorAttributions',
             ].join(','),
           },
-          body: JSON.stringify(requestBody),
-        },
-      )
+            body: JSON.stringify(requestBody),
+            signal,
+          },
+        )
 
-      if (!response.ok) {
-        return c.json({ error: 'Failed to fetch places' }, 502)
-      }
+        if (!response.ok) {
+          throw new Error('Google Places request failed')
+        }
 
-      const data: unknown = await response.json()
+        return response.json()
+      }, { signal: c.req.raw.signal })
       places = normalizePlaces(data, category)
     } catch {
       return c.json({ error: 'Failed to fetch places' }, 502)
