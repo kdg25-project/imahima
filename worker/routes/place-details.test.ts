@@ -120,6 +120,18 @@ describe('GET /api/places/:placeId', () => {
     expect(await response.json()).toMatchObject({ todayOpeningHours: '定休日' })
   })
 
+  it('施設のタイムゾーンにおける今日の営業時間を返す', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(Response.json({
+      id: 'timezone-place',
+      currentOpeningHours: { weekdayDescriptions: ['水曜日: 10:00～18:00', '火曜日: 9:00～17:00'] },
+      timeZone: { id: 'America/Los_Angeles' },
+    }))
+
+    const response = await app.request('/api/places/timezone-place', {}, env)
+
+    expect(await response.json()).toMatchObject({ todayOpeningHours: '9:00～17:00' })
+  })
+
   it('上限のない価格帯は「以上」として返す', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(Response.json({
       id: 'open-ended-price',
