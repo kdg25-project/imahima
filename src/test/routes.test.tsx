@@ -67,7 +67,7 @@ describe('主要画面フロー', () => {
     expect(router.state.location.search).toMatchObject({ lat: 35.17, lng: 136.88, area: '名古屋駅' })
   })
 
-  it('サーバー検索のおすすめ順と理由を表示する', async () => {
+  it('検索結果には施設情報だけを表示する', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url.startsWith('/api/search?')) return json({ weather: { temperature: 21, weatherCode: 1, precipitation: 0 }, places: [
@@ -79,7 +79,10 @@ describe('主要画面フロー', () => {
     renderRoute('/search?mode=nearby&category=%E3%81%99%E3%81%B9%E3%81%A6&walkMinutes=15&area=%E5%90%8D%E5%8F%A4%E5%B1%8B%E9%A7%85&lat=35.17&lng=136.88')
 
     expect(await screen.findByRole('heading', { level: 3, name: '近いカフェ' })).toBeTruthy()
-    expect(screen.getByText(/近くて行きやすい・おすすめ度 67点/)).toBeTruthy()
+    expect(screen.getByText('約280m')).toBeTruthy()
+    expect(screen.getByText('徒歩5分')).toBeTruthy()
+    expect(screen.queryByText(/近くて行きやすい/)).toBeNull()
+    expect(screen.queryByText(/おすすめ度 67点/)).toBeNull()
   })
 
   it('free-timeの検索条件をサーバー契約へ変換する', async () => {
