@@ -30,6 +30,8 @@ export type PlaceSummary = {
 
 export type PlaceDetails = PlaceSummary & {
   address: string | null
+  openingHours: string[]
+  budget: string | null
 }
 
 export type WalkingRoute = {
@@ -165,6 +167,11 @@ function parsePhotos(value: unknown): PlacePhoto[] {
   })
 }
 
+function parseOpeningHours(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((description): description is string => typeof description === 'string' && description.trim() !== '')
+}
+
 function parsePlace(value: unknown, includeAddress: boolean): PlaceSummary | PlaceDetails {
   if (!isRecord(value)) throw new ApiError(502, '施設情報の形式が不正です。')
   const place = {
@@ -178,7 +185,14 @@ function parsePlace(value: unknown, includeAddress: boolean): PlaceSummary | Pla
     openNow: typeof value.openNow === 'boolean' ? value.openNow : null,
     photos: parsePhotos(value.photos),
   }
-  return includeAddress ? { ...place, address: typeof value.address === 'string' ? value.address : null } : place
+  return includeAddress
+    ? {
+        ...place,
+        address: typeof value.address === 'string' ? value.address : null,
+        openingHours: parseOpeningHours(value.openingHours),
+        budget: typeof value.budget === 'string' ? value.budget : null,
+      }
+    : place
 }
 
 function finiteOrNull(value: unknown): number | null {

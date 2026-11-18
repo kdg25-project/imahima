@@ -40,7 +40,10 @@ export function DetailsPreview() {
     <DetailSummary name={'スターバックス\nJRゲートタワー店'} description="名古屋駅直結のスターバックス。仕事や待ち合わせにも。" tags={[{ label: 'カフェ' }, { label: '屋内' }, { label: '営業中', tone: 'positive' }]} rating="3.7" reviewCount={500} />
     <DetailPhotoGallery placeName="スターバックス" photos={[]} imageSources={previewPhotos} onOpen={setGalleryOpener} />
     <div className="detail-walking"><DetailRow icon="walk">現在地から320m（徒歩5分）</DetailRow></div>
-    <DetailInfoCards openingHours="7:00~22:00" budget="¥300~¥1,000" />
+    <DetailInfoCards
+      openingHours={['月曜日: 7:00～22:00', '火曜日: 7:00～22:00']}
+      budget="¥300〜¥1,000"
+    />
     <DetailTabs activeTab={activeTab} onChange={setActiveTab} reviewCount={503} idPrefix="preview-detail" />
     <div className="detail-tab-panel" id={`preview-detail-panel-${activeTab}`} role="tabpanel" aria-labelledby={`preview-detail-tab-${activeTab}`}>{activeTab === 'map' ? <div className="detail-map-wrap"><div className="detail-map"><img src={detailMap} alt="Figma表示確認用の静止地図。操作できません。" /></div><span className="detail-map-expand">地図を広げる</span></div> : <p className="detail-empty">このプレビューでは情報を表示していません。</p>}</div>
     <Button className="route-button" disabled>経路を検索<Icon name="direction" /></Button>

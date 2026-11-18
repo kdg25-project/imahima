@@ -89,7 +89,10 @@ function PlaceDetails() {
       {!route && hasSearchCoordinates(search) && routeUnavailable && <DetailRow icon="walk">徒歩経路を取得できませんでした</DetailRow>}
       {!hasSearchCoordinates(search) && <DetailRow icon="walk">検索地点を選ぶと徒歩経路を確認できます</DetailRow>}
     </div>
-    <DetailInfoCards />
+    <DetailInfoCards
+      openingHours={place.openingHours}
+      budget={place.budget}
+    />
     <DetailTabs activeTab={activeTab} onChange={setActiveTab} />
     <div className="detail-tab-panel" role="tabpanel" id={`detail-panel-${activeTab}`} aria-labelledby={`detail-tab-${activeTab}`}>
       {activeTab === 'map' && <div className="detail-map-wrap"><PlaceMap className="detail-map" place={{ name: place.name, location: place.location }} />{mapSearch && <a className="detail-map-expand" href={mapSearch} target="_blank" rel="noreferrer">地図を広げる</a>}</div>}

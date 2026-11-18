@@ -50,8 +50,24 @@ describe('place API helpers', () => {
   })
 
   it('keeps place detail fields nullable when upstream data is incomplete', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ id: 'place-1', name: '施設', category: 'food', location: { lat: 35.1, lng: 136.1 }, address: '名古屋市' })))
-    await expect(getPlaceDetails('place-1')).resolves.toMatchObject({ id: 'place-1', name: '施設', address: '名古屋市', rating: null, openNow: null })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({
+      id: 'place-1',
+      name: '施設',
+      category: 'food',
+      location: { lat: 35.1, lng: 136.1 },
+      address: '名古屋市',
+      openingHours: ['月曜日: 9:00～18:00', 42],
+      budget: '￥1,000〜￥2,000',
+    })))
+    await expect(getPlaceDetails('place-1')).resolves.toMatchObject({
+      id: 'place-1',
+      name: '施設',
+      address: '名古屋市',
+      rating: null,
+      openNow: null,
+      openingHours: ['月曜日: 9:00～18:00'],
+      budget: '￥1,000〜￥2,000',
+    })
   })
 
   it('uses the validated detail app category while accepting legacy raw categories', async () => {

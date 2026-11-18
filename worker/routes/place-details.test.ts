@@ -16,7 +16,13 @@ describe('GET /api/places/:placeId', () => {
       formattedAddress: '愛知県名古屋市...',
       primaryType: 'cafe',
       rating: 4.2,
-      currentOpeningHours: { openNow: true },
+      currentOpeningHours: { openNow: true, weekdayDescriptions: ['臨時営業時間'] },
+      regularOpeningHours: { weekdayDescriptions: ['月曜日: 9:00～18:00', '火曜日: 9:00～18:00'] },
+      priceRange: {
+        startPrice: { currencyCode: 'JPY', units: '300' },
+        endPrice: { currencyCode: 'JPY', units: '1000' },
+      },
+      priceLevel: 'PRICE_LEVEL_MODERATE',
       location: { latitude: 35.17, longitude: 136.88 },
       photos: [{
         name: 'places/ChIJ/photos/1',
@@ -43,6 +49,8 @@ describe('GET /api/places/:placeId', () => {
       appCategory: 'cafe',
       rating: 4.2,
       openNow: true,
+      openingHours: ['月曜日: 9:00～18:00', '火曜日: 9:00～18:00'],
+      budget: '￥300〜￥1,000',
       location: { lat: 35.17, lng: 136.88 },
       photos: [{
         name: 'places/ChIJ/photos/1',
@@ -51,7 +59,42 @@ describe('GET /api/places/:placeId', () => {
         authorAttributions: [{ displayName: '撮影者', uri: 'https://example.com/author' }],
       }],
     });
+    expect(new Headers(vi.mocked(globalThis.fetch).mock.calls[0]?.[1]?.headers).get('X-Goog-FieldMask')).toContain('regularOpeningHours')
+    expect(new Headers(vi.mocked(globalThis.fetch).mock.calls[0]?.[1]?.headers).get('X-Goog-FieldMask')).toContain('priceRange')
   });
+
+  it('営業時間は通常時間を優先し、予算の不正な範囲は価格レベルへフォールバックする', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(Response.json({
+      id: 'fallback-place',
+      currentOpeningHours: { openNow: false, weekdayDescriptions: ['本日: 休業'] },
+      regularOpeningHours: { weekdayDescriptions: ['月曜日: 10:00～18:00', 42] },
+      priceRange: {
+        startPrice: { currencyCode: 'JPY', units: '1000' },
+        endPrice: { currencyCode: 'JPY', units: 'not-a-number' },
+      },
+      priceLevel: 'PRICE_LEVEL_INEXPENSIVE',
+    }))
+
+    const response = await app.request('/api/places/fallback-place', {}, env)
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      openNow: false,
+      openingHours: ['月曜日: 10:00～18:00'],
+      budget: '安め',
+    })
+  })
+
+  it('上限のない価格帯は「以上」として返す', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(Response.json({
+      id: 'open-ended-price',
+      priceRange: { startPrice: { currencyCode: 'JPY', units: '1000' } },
+    }))
+
+    const response = await app.request('/api/places/open-ended-price', {}, env)
+
+    expect(await response.json()).toMatchObject({ budget: '￥1,000以上' })
+  })
 
   it('新しいPlacesキーを優先し、従来のMapsキーにも後方互換で対応する', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch')
@@ -194,6 +237,8 @@ describe('GET /api/places/:placeId', () => {
       appCategory: null,
       rating: null,
       openNow: null,
+      openingHours: [],
+      budget: null,
       location: null,
       photos: [],
     });
