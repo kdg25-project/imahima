@@ -33,7 +33,7 @@ export function DetailTabs({ activeTab, onChange, reviewCount, idPrefix = 'detai
     {detailTabs.map((tab, index) => {
       const selected = activeTab === tab.id
       const label = tab.id === 'reviews' && reviewCount !== undefined ? `口コミ(${reviewCount})` : tab.label
-      return <button key={tab.id} type="button" role="tab" id={`${idPrefix}-tab-${tab.id}`} tabIndex={selected ? 0 : -1} aria-selected={selected} aria-controls={`${idPrefix}-panel-${tab.id}`} onClick={() => onChange(tab.id)} onKeyDown={(event) => selectFromKeyboard(event, index)}>{label}</button>
+      return <button key={tab.id} type="button" role="tab" id={`${idPrefix}-tab-${tab.id}`} tabIndex={selected ? 0 : -1} aria-selected={selected} aria-controls={`${idPrefix}-panel-${tab.id}`} onClick={() => onChange(tab.id)} onKeyDown={(event) => selectFromKeyboard(event, index)}><span>{label}</span></button>
     })}
   </div>
 }

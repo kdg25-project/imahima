@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { ResultsLayout } from '../places/ResultsLayout'
 import { DetailRow, DetailsLayout } from '../places/DetailsLayout'
 import { DetailInfoCards } from '../places/DetailInfoCards'
+import { DetailPhotoGallery } from '../places/DetailPhotoGallery'
 import { PlaceCard, PlaceRow } from '../places/PlaceCard'
 import { Button, ButtonArrow, buttonClassName } from '../ui/Button'
 import { DetailSummary } from '../places/DetailSummary'
@@ -35,11 +36,11 @@ export function DetailsPreview() {
   const [activeTab, setActiveTab] = useState<DetailTab>('map')
   return <div className="design-preview"><DetailsLayout backAction={<Link className="back-link" to="/search" search={{ preview: 'design', mode: 'free-time', category: 'すべて', walkMinutes: undefined, freeTime: 60, lat: undefined, lng: undefined, name: undefined, area: '現在地周辺' }} aria-label="検索結果へ戻る"><img src={back} alt="" /></Link>} hero={<img className="detail-preview-hero" src={store} alt="スターバックスの店内" />}>
     <DetailSummary name={'スターバックス\nJRゲートタワー店'} description="名古屋駅直結のスターバックス。仕事や待ち合わせにも。" tags={[{ label: 'カフェ' }, { label: '屋内' }, { label: '営業中', tone: 'positive' }]} rating="3.7" reviewCount={500} />
-    <div className="detail-gallery" aria-label="スターバックスの写真"><div className="detail-gallery__card"><img src={store} alt="スターバックスの店内" /></div><div className="detail-gallery__card"><img src={drinks} alt="ドリンク" /></div><div className="detail-gallery__card"><img src={coffee} alt="コーヒー" /><span className="detail-gallery__more">+4</span></div></div>
+    <DetailPhotoGallery placeName="スターバックス" photos={[]} imageSources={[{ src: store, alt: 'スターバックスの店内' }, { src: drinks, alt: 'ドリンク' }, { src: coffee, alt: 'コーヒー' }, { src: food, alt: 'フード' }, { src: store, alt: 'スターバックスの外観' }, { src: drinks, alt: 'アイスドリンク' }, { src: coffee, alt: 'コーヒー豆' }]} />
     <div className="detail-walking"><DetailRow icon="walk">現在地から320m（徒歩5分）</DetailRow></div>
     <DetailInfoCards openingHours="7:00~22:00" budget="¥300~¥1,000" />
     <DetailTabs activeTab={activeTab} onChange={setActiveTab} reviewCount={503} idPrefix="preview-detail" />
     <div className="detail-tab-panel" id={`preview-detail-panel-${activeTab}`} role="tabpanel" aria-labelledby={`preview-detail-tab-${activeTab}`}>{activeTab === 'map' ? <div className="detail-map-wrap"><div className="detail-map"><img src={detailMap} alt="Figma表示確認用の静止地図。操作できません。" /></div><span className="detail-map-expand">地図を広げる</span></div> : <p className="detail-empty">このプレビューでは情報を表示していません。</p>}</div>
-    <Button className="route-button" disabled><Icon name="direction" />経路を検索</Button>
+    <Button className="route-button" disabled>経路を検索<Icon name="direction" /></Button>
   </DetailsLayout></div>
 }

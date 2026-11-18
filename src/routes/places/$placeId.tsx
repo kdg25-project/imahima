@@ -3,6 +3,7 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { ErrorState, LoadingState } from '../../components/feedback/States'
 import { DetailRow, DetailsLayout } from '../../components/places/DetailsLayout'
 import { DetailInfoCards } from '../../components/places/DetailInfoCards'
+import { DetailPhotoGallery } from '../../components/places/DetailPhotoGallery'
 import { DetailSummary } from '../../components/places/DetailSummary'
 import { DetailTabs, type DetailTab } from '../../components/places/DetailTabs'
 import { PlacePhoto } from '../../components/places/PlacePhoto'
@@ -81,12 +82,7 @@ function PlaceDetails() {
   return <DetailsLayout backAction={backAction} hero={place.photos[0] ? <PlacePhoto photo={place.photos[0]} alt={`${place.name ?? 'スポット'}の写真`} className="detail-hero-photo" width={1200} /> : <div className="hero-placeholder">スポットの写真は利用できません</div>}>
     <DetailSummary name={place.name ?? '名称未設定のスポット'} tags={tags} rating={place.rating?.toFixed(1)} />
     {place.id && <div className="detail-favorite"><FavoriteButton placeId={place.id} className="favorite-button" /></div>}
-    {place.photos.length > 1 && <div className="detail-gallery" aria-label={`${place.name ?? 'スポット'}の写真`}>
-      {place.photos.slice(0, 3).map((photo, index) => <div className="detail-gallery__card" key={photo.name ?? index}>
-        <PlacePhoto photo={photo} alt={`${place.name ?? 'スポット'}の写真 ${index + 1}`} width={360} />
-        {index === 2 && place.photos.length > 3 && <span className="detail-gallery__more">+{place.photos.length - 3}</span>}
-      </div>)}
-    </div>}
+    {place.photos.length > 1 && <DetailPhotoGallery photos={place.photos} placeName={place.name ?? 'スポット'} />}
     <div className="detail-walking">
       {route && <DetailRow icon="walk">{search.name ?? search.area}から{formatDistance(route.distanceMeters)}（{formatWalkingDuration(route.durationSeconds)}）</DetailRow>}
       {!route && hasSearchCoordinates(search) && routeUnavailable && <DetailRow icon="walk">徒歩経路を取得できませんでした</DetailRow>}
@@ -100,6 +96,6 @@ function PlaceDetails() {
       {activeTab === 'reviews' && <p className="detail-empty">口コミ情報はまだありません。</p>}
       {activeTab === 'facility' && <div className="detail-info">{place.address ? <DetailRow icon="pinDetail">{place.address}</DetailRow> : <p className="detail-empty">施設情報はまだありません。</p>}</div>}
     </div>
-    <a className={`${buttonClassName()} route-button`} href={`https://www.google.com/maps/dir/?${directions}`} target="_blank" rel="noreferrer"><Icon name="direction" />経路を検索</a>
+    <a className={`${buttonClassName()} route-button`} href={`https://www.google.com/maps/dir/?${directions}`} target="_blank" rel="noreferrer">経路を検索<Icon name="direction" /></a>
   </DetailsLayout>
 }
