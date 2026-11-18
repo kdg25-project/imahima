@@ -40,6 +40,7 @@ describe('GET /api/places/:placeId', () => {
       name: '○○カフェ',
       address: '愛知県名古屋市...',
       category: 'cafe',
+      appCategory: 'cafe',
       rating: 4.2,
       openNow: true,
       location: { lat: 35.17, lng: 136.88 },
@@ -70,6 +71,38 @@ describe('GET /api/places/:placeId', () => {
     expect(withLegacyKey.status).toBe(200)
     expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get('X-Goog-Api-Key')).toBe('legacy-maps-key')
   });
+
+  it('生の主分類を残しつつ、公園タグ付き観光地の認識済みカテゴリを追加する', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      Response.json({
+        id: 'park-place',
+        primaryType: 'tourist_attraction',
+        types: ['tourist_attraction', 'city_park', 'park'],
+      }),
+    )
+
+    const response = await app.request('/api/places/park-place', {}, env)
+
+    expect(response.status).toBe(200)
+    expect(new Headers(vi.mocked(globalThis.fetch).mock.calls[0]?.[1]?.headers).get('X-Goog-FieldMask')).toContain('types')
+    expect(await response.json()).toMatchObject({
+      category: 'tourist_attraction',
+      appCategory: 'park',
+    })
+  })
+
+  it.each([
+    ['sports_complex', ['sports_complex', 'karaoke'], 'entertainment'],
+    ['cafe', ['cafe', 'internet_cafe'], 'entertainment'],
+  ])('詳細でも関連タグを同じアプリカテゴリへ正規化する', async (primaryType, types, appCategory) => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      Response.json({ id: 'mixed-place', primaryType, types }),
+    )
+
+    const response = await app.request('/api/places/mixed-place', {}, env)
+
+    expect(await response.json()).toMatchObject({ category: primaryType, appCategory })
+  })
 
   it('Placesキーが未設定なら外部リクエストをせず設定エラーを返す', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch')
@@ -126,6 +159,7 @@ describe('GET /api/places/:placeId', () => {
     null,
     { displayName: 'invalid' },
     { location: { latitude: '35.17', longitude: 136.88 } },
+    { types: ['cafe', 42] },
     { photos: [null] },
     { photos: [{ authorAttributions: [null] }] },
   ])('Google API の壊れた応答 %j は 502 を返す', async (body) => {
@@ -157,6 +191,7 @@ describe('GET /api/places/:placeId', () => {
       name: '最小限のスポット',
       address: null,
       category: null,
+      appCategory: null,
       rating: null,
       openNow: null,
       location: null,

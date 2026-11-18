@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { normalizePoiCategory } from '../../shared/poi-taxonomy'
 
 type Bindings = {
   GOOGLE_PLACES_API_KEY?: string;
@@ -11,6 +12,7 @@ type GooglePlaceDetailsResponse = {
   displayName?: { text?: string; languageCode?: string };
   formattedAddress?: string;
   primaryType?: string;
+  types?: string[];
   rating?: number;
   currentOpeningHours?: { openNow?: boolean };
   location?: { latitude?: number; longitude?: number };
@@ -63,6 +65,11 @@ function validateGooglePlaceDetailsResponse(
   assertOptionalString(value.id)
   assertOptionalString(value.formattedAddress)
   assertOptionalString(value.primaryType)
+  if (value.types !== undefined && value.types !== null) {
+    if (!Array.isArray(value.types) || value.types.some((type) => typeof type !== 'string')) {
+      throw new InvalidGooglePlacesResponseError()
+    }
+  }
   assertOptionalFiniteNumber(value.rating)
 
   if (value.displayName !== undefined && value.displayName !== null) {
@@ -133,7 +140,7 @@ app.get('/:placeId', async (c) => {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': apiKey,
         // Place Details (New) では FieldMask に 'places.' プレフィックスを付けません
-        'X-Goog-FieldMask': 'id,displayName,formattedAddress,primaryType,rating,currentOpeningHours,location,photos,photos.authorAttributions',
+        'X-Goog-FieldMask': 'id,displayName,formattedAddress,primaryType,types,rating,currentOpeningHours,location,photos,photos.authorAttributions',
       },
     });
   } catch (error) {
@@ -170,6 +177,7 @@ app.get('/:placeId', async (c) => {
     name: data.displayName?.text ?? null,
     address: data.formattedAddress ?? null,
     category: data.primaryType ?? null,
+    appCategory: normalizePoiCategory(data.primaryType, data.types ?? []) ?? null,
     rating: data.rating ?? null,
     openNow: data.currentOpeningHours?.openNow ?? null,
     location:

@@ -5,5 +5,5 @@
     "strict": true, "skipLibCheck": true, "noEmit": true, "types": ["vite/client"],
     "noUnusedLocals": true, "noUnusedParameters": true, "verbatimModuleSyntax": true
   },
-  "include": ["src"]
+  "include": ["src", "shared"]
 }

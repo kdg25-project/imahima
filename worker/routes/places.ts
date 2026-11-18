@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { withUpstreamTimeout } from '../lib/upstream'
+import { categoryMatchesSearch, isPoiCategory, normalizePoiCategory, primaryTypesForCategory, usesAssociatedTypeFilter } from '../../shared/poi-taxonomy'
 
 type Bindings = {
   GOOGLE_PLACES_API_KEY?: string
@@ -26,28 +27,6 @@ export type PlaceResult = {
   rating: number | null
   openNow: boolean | null
   photos: PlacePhoto[]
-}
-
-const CATEGORY_TYPES = {
-  cafe: ['cafe'],
-  food: ['restaurant'],
-  shopping: ['shopping_mall', 'department_store'],
-  entertainment: [
-    'amusement_center',
-    'amusement_park',
-    'movie_theater',
-  ],
-  sightseeing: ['tourist_attraction', 'museum'],
-  exercise: ['gym', 'fitness_center', 'sports_complex'],
-  park: ['park'],
-  study: ['library', 'cafe'],
-  rest: ['cafe', 'park'],
-} as const
-
-function isCategory(
-  value: string,
-): value is keyof typeof CATEGORY_TYPES {
-  return Object.hasOwn(CATEGORY_TYPES, value)
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -112,10 +91,7 @@ function normalizePhotos(value: unknown): PlacePhoto[] {
   })
 }
 
-function normalizePlaces(
-  data: unknown,
-  category: string | undefined,
-): PlaceResult[] {
+function normalizePlaces(data: unknown): PlaceResult[] {
   if (!isRecord(data)) throw new Error('Invalid Google Places response')
   const rawPlaces = data.places
   if (rawPlaces === undefined) return []
@@ -138,6 +114,7 @@ function normalizePlaces(
       throw new Error('Invalid Google Places response')
     }
 
+    const primaryType = optionalString(place.primaryType)
     const location = place.location
     let normalizedLocation: PlaceResult['location'] = null
     if (location !== undefined && location !== null) {
@@ -153,15 +130,10 @@ function normalizePlaces(
       throw new Error('Invalid Google Places response')
     }
 
-    const matchedCategory = Object.entries(CATEGORY_TYPES)
-      .find(([, categoryTypes]) =>
-        categoryTypes.some((type) => (types ?? []).includes(type)),
-      )?.[0]
-
     return {
       id,
       name,
-      category: category ?? matchedCategory ?? null,
+      category: normalizePoiCategory(primaryType, types ?? []) ?? null,
       location: normalizedLocation,
       rating: optionalFiniteNumber(place.rating),
       openNow: openingHours === undefined || openingHours === null
@@ -204,7 +176,7 @@ placesRoutes.get('/', async (c) => {
       return c.json({ error: 'Invalid lat or lng' }, 400)
     }
 
-    if (category !== undefined && !isCategory(category)) {
+    if (category !== undefined && !isPoiCategory(category)) {
       return c.json({ error: 'Invalid category' }, 400)
     }
 
@@ -240,9 +212,9 @@ placesRoutes.get('/', async (c) => {
           radius,
         },
       },
-      ...(category !== undefined && isCategory(category)
-        ? { includedTypes: CATEGORY_TYPES[category] }
-        : {}),
+      ...(category !== undefined && usesAssociatedTypeFilter(category)
+        ? { includedTypes: primaryTypesForCategory(category) }
+        : { includedPrimaryTypes: primaryTypesForCategory(category ?? 'any') }),
     }
 
     let places: PlaceResult[]
@@ -260,6 +232,7 @@ placesRoutes.get('/', async (c) => {
               'places.id',
               'places.displayName',
               'places.types',
+              'places.primaryType',
               'places.location',
               'places.rating',
               'places.currentOpeningHours.openNow',
@@ -280,7 +253,15 @@ placesRoutes.get('/', async (c) => {
 
         return response.json()
       }, { signal: c.req.raw.signal })
-      places = normalizePlaces(data, category)
+      places = normalizePlaces(data).filter((place) => {
+        if (category === undefined) return true
+        if (!isPoiCategory(category)) return false
+        const categoryValue = place.category
+        const actualCategory = categoryValue !== null && isPoiCategory(categoryValue)
+          ? categoryValue
+          : undefined
+        return categoryMatchesSearch(category, actualCategory)
+      })
     } catch {
       return c.json({ error: 'Failed to fetch places' }, 502)
     }

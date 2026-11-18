@@ -81,7 +81,7 @@ describe('GET /api/places', () => {
     expect(headers.get('X-Goog-FieldMask')).toContain('places.id')
     expect(headers.get('X-Goog-FieldMask')).not.toContain('*')
     expect(JSON.parse(String(options?.body))).toMatchObject({
-      includedTypes: ['cafe'],
+      includedPrimaryTypes: ['cafe', 'coffee_shop', 'cat_cafe', 'dog_cafe'],
       locationRestriction: {
         circle: {
           center: { latitude: 35.1709, longitude: 136.8815 },
@@ -92,36 +92,135 @@ describe('GET /api/places', () => {
   })
 
   it.each([
-    ['cafe', ['cafe']],
-    ['food', ['restaurant']],
-    ['shopping', ['shopping_mall', 'department_store']],
-    ['entertainment', ['amusement_center', 'amusement_park', 'movie_theater']],
-    ['sightseeing', ['tourist_attraction', 'museum']],
-    ['park', ['park']],
-    ['study', ['library', 'cafe']],
-    ['rest', ['cafe', 'park']],
-  ] as const)('カテゴリ %s をGoogleのタイプに変換する', async (category, types) => {
+    ['cafe', ['cafe', 'coffee_shop', 'cat_cafe', 'dog_cafe']],
+    ['food', ['restaurant', 'fast_food_restaurant', 'bakery', 'food_court', 'deli', 'cafeteria', 'donut_shop']],
+    ['shopping', ['shopping_mall', 'department_store', 'book_store', 'clothing_store', 'toy_store', 'discount_store', 'gift_shop', 'supermarket', 'convenience_store', 'electronics_store', 'home_goods_store', 'thrift_store', 'shoe_store', 'jewelry_store', 'sportswear_store']],
+    ['entertainment', ['amusement_center', 'amusement_park', 'movie_theater', 'bowling_alley', 'karaoke', 'video_arcade', 'internet_cafe', 'aquarium', 'performing_arts_theater']],
+    ['sightseeing', ['tourist_attraction', 'museum', 'historical_landmark', 'cultural_landmark', 'monument', 'art_gallery', 'observation_deck', 'castle', 'shinto_shrine', 'buddhist_temple', 'sculpture']],
+    ['exercise', ['gym', 'fitness_center', 'sports_complex', 'swimming_pool', 'ice_skating_rink', 'athletic_field', 'sports_club']],
+    ['park', ['park', 'city_park', 'national_park', 'state_park', 'garden', 'botanical_garden', 'hiking_area', 'picnic_ground']],
+    ['study', ['library', 'cafe', 'coffee_shop']],
+    ['rest', ['cafe', 'coffee_shop', 'park', 'city_park', 'garden', 'plaza']],
+  ] as const)('カテゴリ %s をGoogleの主タイプに変換する', async (category, types) => {
     const response = await request(validPath + '&category=' + category)
     const options = fetchMock.mock.calls[0]?.[1]
 
     expect(response.status).toBe(200)
-    expect(JSON.parse(String(options?.body)).includedTypes).toEqual(types)
-    expect(await response.json()).toMatchObject({
-      places: [{ category }],
-    })
+    const requestBody = JSON.parse(String(options?.body))
+    const requestField = category === 'entertainment' || category === 'park'
+      ? 'includedTypes'
+      : 'includedPrimaryTypes'
+    expect(requestBody[requestField]).toEqual(types)
+    expect(requestBody).not.toHaveProperty(requestField === 'includedTypes' ? 'includedPrimaryTypes' : 'includedTypes')
+    const result = await response.json() as { places: Array<{ category: string }> }
+    expect(result.places).toEqual(
+      ['cafe', 'study', 'rest'].includes(category) ? [expect.objectContaining({ category: 'cafe' })] : [],
+    )
   })
 
-  it('省略時はカテゴリを絞らず半径1000mで検索する', async () => {
+  it('省略時は暇つぶし向け主タイプだけを半径1000mで検索する', async () => {
     const response = await request()
     const options = fetchMock.mock.calls[0]?.[1]
     const body = JSON.parse(String(options?.body))
 
     expect(response.status).toBe(200)
-    expect(body).not.toHaveProperty('includedTypes')
+    expect(body.includedPrimaryTypes).toContain('karaoke')
+    expect(body.includedPrimaryTypes).toContain('book_store')
+    expect(body.includedPrimaryTypes).toHaveLength(50)
+    expect(body.includedPrimaryTypes).not.toContain('convenience_store')
     expect(body.locationRestriction.circle.radius).toBe(1000)
     expect(await response.json()).toMatchObject({
       places: [{ category: 'cafe' }],
     })
+  })
+
+  it('検索チップで返却カテゴリを上書きせず、主タイプを優先する', async () => {
+    fetchMock.mockResolvedValue(Response.json({
+      places: [{
+        ...googlePlace,
+        primaryType: 'hotel',
+        types: ['hotel', 'cafe'],
+      }, {
+        ...googlePlace,
+        id: 'ramen-shop',
+        primaryType: 'ramen_restaurant',
+        types: ['ramen_restaurant', 'restaurant', 'food'],
+      }],
+    }))
+
+    const response = await request(validPath)
+
+    expect(await response.json()).toMatchObject({
+      places: [{ id: 'place-1', category: null }, { id: 'ramen-shop', category: 'food' }],
+    })
+  })
+
+  it('遊びは関連タイプで取得し、カジノ併設や別カテゴリの候補を返さない', async () => {
+    fetchMock.mockResolvedValue(Response.json({
+      places: [{
+        ...googlePlace,
+        id: 'karaoke',
+        primaryType: 'karaoke',
+        types: ['night_club', 'sports_complex', 'karaoke'],
+      }, {
+        ...googlePlace,
+        id: 'sports-karaoke',
+        primaryType: 'sports_complex',
+        types: ['sports_complex', 'karaoke'],
+      }, {
+        ...googlePlace,
+        id: 'internet-cafe',
+        primaryType: 'cafe',
+        types: ['cafe', 'internet_cafe'],
+      }, {
+        ...googlePlace,
+        id: 'snack',
+        primaryType: 'snack_bar',
+        types: ['snack_bar', 'karaoke'],
+      }, {
+        ...googlePlace,
+        id: 'pachinko',
+        types: ['casino', 'amusement_center'],
+      }, {
+        ...googlePlace,
+        id: 'plain-sports',
+        primaryType: 'sports_complex',
+        types: ['sports_complex'],
+      }, {
+        ...googlePlace,
+        id: 'plain-cafe',
+        primaryType: 'cafe',
+        types: ['cafe', 'karaoke'],
+      }],
+    }))
+
+    const response = await request(validPath + '&category=entertainment')
+    const options = fetchMock.mock.calls[0]?.[1]
+
+    expect(JSON.parse(String(options?.body)).includedTypes).toContain('karaoke')
+    const result = await response.json() as { places: Array<{ id: string; category: string }> }
+    expect(result).toMatchObject({ places: [
+      { id: 'karaoke', category: 'entertainment' },
+      { id: 'sports-karaoke', category: 'entertainment' },
+      { id: 'internet-cafe', category: 'entertainment' },
+    ] })
+    expect(result.places.map((place) => place.id)).toEqual(['karaoke', 'sports-karaoke', 'internet-cafe'])
+  })
+
+  it('自然では公園タグ付きの観光地だけを公園として残す', async () => {
+    fetchMock.mockResolvedValue(Response.json({
+      places: [{ ...googlePlace, id: 'city-park', primaryType: 'tourist_attraction', types: ['tourist_attraction', 'city_park', 'park'] }, {
+        ...googlePlace, id: 'tower', primaryType: 'tourist_attraction', types: ['tourist_attraction'] }, {
+        ...googlePlace, id: 'garden', primaryType: 'garden', types: ['garden'] },
+      ],
+    }))
+
+    const response = await request(validPath + '&category=park')
+
+    expect(await response.json()).toMatchObject({ places: [
+      { id: 'city-park', category: 'park' },
+      { id: 'garden', category: 'park' },
+    ] })
   })
 
   it.each([

@@ -1,3 +1,5 @@
+import { categoryLabels, isPoiCategory, normalizePoiCategory, type PoiCategory } from '../../shared/poi-taxonomy'
+
 export type Coordinates = {
   lat: number
   lng: number
@@ -55,19 +57,8 @@ export type SearchPlace = PlaceSummary & {
 
 export type SearchResult = { weather: Weather; places: SearchPlace[] }
 
-export type AppCategory = 'cafe' | 'food' | 'shopping' | 'entertainment' | 'sightseeing' | 'exercise' | 'park' | 'study' | 'rest'
-
-export const categoryLabels: Record<AppCategory, string> = {
-  cafe: 'カフェ',
-  food: 'ごはん',
-  shopping: '買い物',
-  entertainment: '遊び',
-  sightseeing: '観光',
-  exercise: '運動',
-  park: '自然',
-  study: 'その他',
-  rest: 'その他',
-}
+export type AppCategory = PoiCategory
+export { categoryLabels }
 
 const categoryByLabel: Record<string, AppCategory | undefined> = {
   カフェ: 'cafe',
@@ -80,33 +71,15 @@ const categoryByLabel: Record<string, AppCategory | undefined> = {
   その他: 'rest',
 }
 
-const categoryByGoogleType: Record<string, AppCategory | undefined> = {
-  cafe: 'cafe',
-  bakery: 'food',
-  restaurant: 'food',
-  shopping_mall: 'shopping',
-  department_store: 'shopping',
-  amusement_center: 'entertainment',
-  amusement_park: 'entertainment',
-  movie_theater: 'entertainment',
-  tourist_attraction: 'sightseeing',
-  museum: 'sightseeing',
-  gym: 'exercise',
-  fitness_center: 'exercise',
-  sports_complex: 'exercise',
-  park: 'park',
-  library: 'study',
-}
-
 export function categoryToApiValue(label: string) {
   return categoryByLabel[label]
 }
 
 export function normalizePlaceCategory(value: string | null) {
   if (!value) return undefined
-  return categoryLabels[value as AppCategory]
-    ? value as AppCategory
-    : categoryByLabel[value] ?? categoryByGoogleType[value]
+  return isPoiCategory(value)
+    ? value
+    : categoryByLabel[value] ?? normalizePoiCategory(value)
 }
 
 export function displayPlaceCategory(value: string | null) {
@@ -197,7 +170,9 @@ function parsePlace(value: unknown, includeAddress: boolean): PlaceSummary | Pla
   const place = {
     id: typeof value.id === 'string' ? value.id : null,
     name: typeof value.name === 'string' ? value.name : null,
-    category: typeof value.category === 'string' ? value.category : null,
+    category: typeof value.appCategory === 'string' && isPoiCategory(value.appCategory)
+      ? value.appCategory
+      : typeof value.category === 'string' ? value.category : null,
     location: isCoordinates(value.location) ? value.location : null,
     rating: typeof value.rating === 'number' && Number.isFinite(value.rating) ? value.rating : null,
     openNow: typeof value.openNow === 'boolean' ? value.openNow : null,

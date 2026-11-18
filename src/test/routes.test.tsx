@@ -26,6 +26,52 @@ function position(lat: number, lng: number) {
   return { coords: { latitude: lat, longitude: lng } } as GeolocationPosition
 }
 
+const visibleCategories = [
+  ['すべて', 'any'],
+  ['カフェ', 'cafe'],
+  ['ごはん', 'food'],
+  ['買い物', 'shopping'],
+  ['遊び', 'entertainment'],
+  ['観光', 'sightseeing'],
+  ['運動', 'exercise'],
+  ['自然', 'park'],
+  ['その他', 'rest'],
+] as const
+
+function stubEmptySearch() {
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url.startsWith('/api/location/reverse?')) return json({ name: '現在地周辺' })
+    if (url.startsWith('/api/search?')) {
+      return json({ weather: { temperature: 21, weatherCode: 1, precipitation: 0 }, places: [] })
+    }
+    return json({ error: 'not found' }, false)
+  }))
+}
+
+async function submitCurrentLocationSearch(mode: 'nearby' | 'free-time', label: string) {
+  const getCurrentPosition = vi.fn((success: PositionCallback) => { success(position(35.17, 136.88)) })
+  setGeolocation({ getCurrentPosition } as unknown as Geolocation)
+  stubEmptySearch()
+  const router = renderRoute('/')
+
+  await waitFor(() => expect(getCurrentPosition).toHaveBeenCalledTimes(1))
+  await screen.findByRole('button', { name: /現在地周辺/ })
+  const user = userEvent.setup()
+  if (mode === 'free-time') await user.click(screen.getByRole('button', { name: '暇つぶしから探す' }))
+  await user.click(screen.getByRole('button', { name: label }))
+  await user.click(screen.getByRole('button', { name: 'この条件で探す' }))
+  await waitFor(() => expect(router.state.location.pathname).toBe('/search'))
+  await screen.findByText('条件に合う候補が見つかりませんでした')
+
+  const request = vi.mocked(fetch).mock.calls.find(([input]) => String(input).startsWith('/api/search?'))
+  expect(request).toBeDefined()
+  return {
+    router,
+    query: new URL(String(request?.[0]), window.location.origin).searchParams,
+  }
+}
+
 beforeEach(() => {
   geolocationDescriptor = Object.getOwnPropertyDescriptor(navigator, 'geolocation')
   vi.stubGlobal('scrollTo', vi.fn())
@@ -297,6 +343,40 @@ describe('主要画面フロー', () => {
     await user.click(screen.getByRole('button', { name: '暇つぶしから探す' }))
     await user.click(screen.getByRole('button', { name: 'カフェ' }))
     expect(getCurrentPosition).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(visibleCategories)('現在地の近くからカテゴリ「%s」を検索条件へ渡す', async (label, apiCategory) => {
+    const { router, query } = await submitCurrentLocationSearch('nearby', label)
+
+    expect(router.state.location.search).toMatchObject({
+      mode: 'nearby',
+      category: label,
+      walkMinutes: 15,
+      lat: 35.17,
+      lng: 136.88,
+    })
+    expect(query.get('category')).toBe(apiCategory)
+    expect(query.get('walkMinutes')).toBe('15')
+    expect(query.get('lat')).toBe('35.17')
+    expect(query.get('lng')).toBe('136.88')
+    expect(query.has('duration')).toBe(false)
+  })
+
+  it.each(visibleCategories)('現在地の暇つぶし検索をカテゴリ「%s」で条件へ渡す', async (label, apiCategory) => {
+    const { router, query } = await submitCurrentLocationSearch('free-time', label)
+
+    expect(router.state.location.search).toMatchObject({
+      mode: 'free-time',
+      category: label,
+      freeTime: 60,
+      lat: 35.17,
+      lng: 136.88,
+    })
+    expect(query.get('category')).toBe(apiCategory)
+    expect(query.get('duration')).toBe('60')
+    expect(query.has('walkMinutes')).toBe(false)
+    expect(query.get('lat')).toBe('35.17')
+    expect(query.get('lng')).toBe('136.88')
   })
 
   it('アンマウント時に進行中の逆ジオコードを中止し、完了結果を無視する', async () => {

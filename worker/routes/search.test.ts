@@ -123,7 +123,7 @@ describe('GET /api/search の入力チェック', () => {
       const body = JSON.parse(String(placeCall?.[1]?.body))
 
       expect(response.status).toBe(200)
-      expect(body.includedTypes).toEqual(['library', 'cafe'])
+      expect(body.includedPrimaryTypes).toEqual(['library', 'cafe', 'coffee_shop'])
       expect(body.locationRestriction.circle.radius).toBe(1500)
     })
 
@@ -141,7 +141,7 @@ describe('GET /api/search の入力チェック', () => {
 
       expect(response.status).toBe(200)
       expect(body.places).toEqual([])
-      expect(JSON.parse(String(placeCall?.[1]?.body)).includedTypes).toEqual(['gym', 'fitness_center', 'sports_complex'])
+      expect(JSON.parse(String(placeCall?.[1]?.body)).includedPrimaryTypes).toEqual(['gym', 'fitness_center', 'sports_complex', 'swimming_pool', 'ice_skating_rink', 'athletic_field', 'sports_club'])
     })
 
     it.each(['weather', 'places'] as const)(
@@ -188,6 +188,34 @@ describe('GET /api/search の入力チェック', () => {
         GOOGLE_PLACES_API_KEY: 'test-google-key',
       })
       expect(response.status).toBe(500)
+    })
+
+    it('空き時間検索では営業終了を経路照会前に除外し、営業時間不明は残す', async () => {
+      let routeRequests = 0
+      const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+        const hostname = new URL(String(input)).hostname
+        if (hostname === 'api.open-meteo.com') {
+          return Response.json({ current: { temperature_2m: 20, weather_code: 3, precipitation: 0 } })
+        }
+        if (hostname === 'places.googleapis.com') {
+          return Response.json({ places: [
+            { id: 'closed', displayName: { text: '営業終了' }, primaryType: 'cafe', types: ['cafe'], currentOpeningHours: { openNow: false }, location: { latitude: 35.171, longitude: 136.882 } },
+            { id: 'unknown', displayName: { text: '営業時間不明' }, primaryType: 'cafe', types: ['cafe'], location: { latitude: 35.171, longitude: 136.882 } },
+          ] })
+        }
+        if (hostname === 'routes.googleapis.com') {
+          routeRequests += 1
+          return Response.json({ routes: [{ distanceMeters: 320, duration: '300s' }] })
+        }
+        throw new Error('Unexpected fetch')
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const response = await app.request(path.replace('mode=nearby', 'mode=free-time&duration=60'), undefined, env)
+
+      expect(response.status).toBe(200)
+      expect(routeRequests).toBe(1)
+      expect(await response.json()).toMatchObject({ places: [{ id: 'unknown', openNow: null }] })
     })
 
     it.each([

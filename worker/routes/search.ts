@@ -3,19 +3,7 @@ import placesRoutes, { type PlaceResult } from './places'
 import weatherRoutes from './weather'
 import { getWalkingRoute } from '../lib/route-provider'
 import { rankPlaces } from '../lib/search-ranking'
-
-const searchCategories = new Set([
-  'any',
-  'cafe',
-  'food',
-  'shopping',
-  'entertainment',
-  'sightseeing',
-  'exercise',
-  'park',
-  'study',
-  'rest',
-])
+import { isPoiCategory } from '../../shared/poi-taxonomy'
 
 function parseFiniteNumber(text: string | undefined): number | undefined {
   if (text === undefined || text.trim() === '') {
@@ -136,7 +124,7 @@ searchRoutes.get('/',async (c) => {
   }
 
   const category = c.req.query('category') ?? 'any'
-  if (!searchCategories.has(category)) {
+  if (category !== 'any' && !isPoiCategory(category)) {
     return c.json({ error: 'Invalid category' }, 400)
   }
 
@@ -218,10 +206,12 @@ searchRoutes.get('/',async (c) => {
       places: PlaceResult[]
     }
 
-    const places = placesResult.places.map((place) => ({
+    const places = placesResult.places
+      .filter((place) => mode !== 'free-time' || place.openNow !== false)
+      .map((place) => ({
       ...place,
       distance: calculateDistanceMeters(lat, lng, place.location),
-    }))
+      }))
 
     const routes = await mapWithConcurrency(places, 4, async (place, signal) => {
       if (!place.location || place.distance === null) return null

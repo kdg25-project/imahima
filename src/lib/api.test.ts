@@ -54,6 +54,24 @@ describe('place API helpers', () => {
     await expect(getPlaceDetails('place-1')).resolves.toMatchObject({ id: 'place-1', name: '施設', address: '名古屋市', rating: null, openNow: null })
   })
 
+  it('uses the validated detail app category while accepting legacy raw categories', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(json({
+        id: 'park', name: '公園', category: 'tourist_attraction', appCategory: 'park', location: { lat: 35.1, lng: 136.1 }, address: '名古屋市',
+      }))
+      .mockResolvedValueOnce(json({
+        id: 'legacy', name: '旧形式', category: 'food', location: { lat: 35.1, lng: 136.1 }, address: '名古屋市',
+      }))
+      .mockResolvedValueOnce(json({
+        id: 'invalid-app-category', name: '不正形式', category: 'food', appCategory: 'unknown', location: { lat: 35.1, lng: 136.1 }, address: '名古屋市',
+      }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(getPlaceDetails('park')).resolves.toMatchObject({ category: 'park' })
+    await expect(getPlaceDetails('legacy')).resolves.toMatchObject({ category: 'food' })
+    await expect(getPlaceDetails('invalid-app-category')).resolves.toMatchObject({ category: 'food' })
+  })
+
   it.each([
     [0, '徒歩0分'],
     [1, '徒歩1分'],
@@ -70,7 +88,7 @@ describe('search parameter parsing', () => {
     expect(categoryToApiValue('運動')).toBe('exercise')
     expect(displayPlaceCategory('fitness_center')).toBe('運動')
     expect(displayPlaceCategory('bakery')).toBe('ごはん')
-    expect(displayPlaceCategory('athletic_field')).toBe('その他')
+    expect(displayPlaceCategory('athletic_field')).toBe('運動')
     expect(displayPlaceCategory('カフェ')).toBe('カフェ')
   })
 
