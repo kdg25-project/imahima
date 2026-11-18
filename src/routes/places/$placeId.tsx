@@ -3,10 +3,9 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { ErrorState, LoadingState } from '../../components/feedback/States'
 import { DetailRow, DetailsLayout } from '../../components/places/DetailsLayout'
 import { DetailInfoCards } from '../../components/places/DetailInfoCards'
-import { DetailPhotoGallery } from '../../components/places/DetailPhotoGallery'
+import { DetailPhotoGallery, DetailPhotoHero, DetailPhotoViewer } from '../../components/places/DetailPhotoGallery'
 import { DetailSummary } from '../../components/places/DetailSummary'
 import { DetailTabs, type DetailTab } from '../../components/places/DetailTabs'
-import { PlacePhoto } from '../../components/places/PlacePhoto'
 import { PlaceMap } from '../../components/maps/PlaceMap'
 import { buttonClassName } from '../../components/ui/Button'
 import { Icon } from '../../components/ui/Icon'
@@ -27,6 +26,7 @@ function PlaceDetails() {
   const [attempt, setAttempt] = useState(0)
   const [state, setState] = useState<DetailState>({ status: 'loading' })
   const [activeTab, setActiveTab] = useState<DetailTab>('map')
+  const [galleryOpener, setGalleryOpener] = useState<HTMLButtonElement | null>(null)
   const retry = useCallback(() => setAttempt((value) => value + 1), [])
 
   useEffect(() => {
@@ -65,6 +65,7 @@ function PlaceDetails() {
   if (state.status === 'loading') return <DetailsLayout backAction={backAction} hero={<div className="hero-placeholder">スポット情報を読み込んでいます</div>}><LoadingState title="スポット情報を読み込んでいます" /></DetailsLayout>
   if (state.status === 'error') return <DetailsLayout backAction={backAction} hero={<div className="hero-placeholder">スポットの写真は利用できません</div>}><ErrorState title="スポット情報を取得できませんでした" onRetry={retry} /></DetailsLayout>
   const { place, route, routeUnavailable } = state
+  const placeName = place.name ?? 'スポット'
   const tags = [
     ...(place.category ? [{ label: displayPlaceCategory(place.category) ?? place.category }] : []),
     ...(place.openNow === true ? [{ label: '営業中', tone: 'positive' as const }] : place.openNow === false ? [{ label: '営業時間外' }] : []),
@@ -79,10 +80,10 @@ function PlaceDetails() {
   const mapSearch = place.location
     ? `https://www.google.com/maps/search/?${new URLSearchParams({ api: '1', query: `${place.name ?? ''} ${place.location.lat},${place.location.lng}` })}`
     : undefined
-  return <DetailsLayout backAction={backAction} hero={place.photos[0] ? <PlacePhoto photo={place.photos[0]} alt={`${place.name ?? 'スポット'}の写真`} className="detail-hero-photo" width={1200} /> : <div className="hero-placeholder">スポットの写真は利用できません</div>}>
+  return <DetailsLayout backAction={backAction} hero={place.photos[0] ? <DetailPhotoHero photo={place.photos[0]} placeName={placeName} onOpen={setGalleryOpener} /> : <div className="hero-placeholder">スポットの写真は利用できません</div>}>
     <DetailSummary name={place.name ?? '名称未設定のスポット'} tags={tags} rating={place.rating?.toFixed(1)} />
     {place.id && <div className="detail-favorite"><FavoriteButton placeId={place.id} className="favorite-button" /></div>}
-    {place.photos.length > 1 && <DetailPhotoGallery photos={place.photos} placeName={place.name ?? 'スポット'} />}
+    {place.photos.length > 1 && <DetailPhotoGallery photos={place.photos} placeName={placeName} onOpen={setGalleryOpener} />}
     <div className="detail-walking">
       {route && <DetailRow icon="walk">{search.name ?? search.area}から{formatDistance(route.distanceMeters)}（{formatWalkingDuration(route.durationSeconds)}）</DetailRow>}
       {!route && hasSearchCoordinates(search) && routeUnavailable && <DetailRow icon="walk">徒歩経路を取得できませんでした</DetailRow>}
@@ -97,5 +98,6 @@ function PlaceDetails() {
       {activeTab === 'facility' && <div className="detail-info">{place.address ? <DetailRow icon="pinDetail">{place.address}</DetailRow> : <p className="detail-empty">施設情報はまだありません。</p>}</div>}
     </div>
     <a className={`${buttonClassName()} route-button`} href={`https://www.google.com/maps/dir/?${directions}`} target="_blank" rel="noreferrer">経路を検索<Icon name="direction" /></a>
+    {galleryOpener && <DetailPhotoViewer photos={place.photos} placeName={placeName} opener={galleryOpener} onClose={() => setGalleryOpener(null)} />}
   </DetailsLayout>
 }

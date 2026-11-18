@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { ResultsLayout } from '../places/ResultsLayout'
 import { DetailRow, DetailsLayout } from '../places/DetailsLayout'
 import { DetailInfoCards } from '../places/DetailInfoCards'
-import { DetailPhotoGallery } from '../places/DetailPhotoGallery'
+import { DetailPhotoGallery, DetailPhotoViewer } from '../places/DetailPhotoGallery'
 import { PlaceCard, PlaceRow } from '../places/PlaceCard'
 import { Button, ButtonArrow, buttonClassName } from '../ui/Button'
 import { DetailSummary } from '../places/DetailSummary'
@@ -23,6 +23,7 @@ import './DesignPreview.css'
 const recommended = { name: 'スターバックス JRゲートタワー店', photos: [store, drinks, coffee], photoCount: 7, category: 'カフェ', price: '~¥1,000', distanceLabel: '徒歩5分(320m)', durationLabel: '15分〜1時間' }
 const previewSearch = { preview: 'design' as const, mode: 'free-time' as const, category: 'すべて', freeTime: 60, area: '現在地周辺' }
 const detailLink = <Link className={`${buttonClassName('primary', 'small')} button--arrow`} to="/places/$placeId" params={{ placeId: 'preview' }} search={previewSearch}><span>詳しく見る</span><ButtonArrow size="small" /></Link>
+const previewPhotos = [{ src: store, alt: 'スターバックスの店内' }, { src: drinks, alt: 'ドリンク' }, { src: coffee, alt: 'コーヒー' }, { src: food, alt: 'フード' }, { src: store, alt: 'スターバックスの外観' }, { src: drinks, alt: 'アイスドリンク' }, { src: coffee, alt: 'コーヒー豆' }]
 
 export function ResultsPreview() {
   return <div className="design-preview"><ResultsLayout summary="現在地周辺・1時間・すべて" changeAction={<Link className={buttonClassName('secondary', 'small')} to="/"><Icon name="filters" />条件を変更</Link>} map={<img className="design-map" src={resultsMap} alt="Figma表示確認用の静止地図。操作できません。" />}>
@@ -34,13 +35,15 @@ export function ResultsPreview() {
 
 export function DetailsPreview() {
   const [activeTab, setActiveTab] = useState<DetailTab>('map')
-  return <div className="design-preview"><DetailsLayout backAction={<Link className="back-link" to="/search" search={{ preview: 'design', mode: 'free-time', category: 'すべて', walkMinutes: undefined, freeTime: 60, lat: undefined, lng: undefined, name: undefined, area: '現在地周辺' }} aria-label="検索結果へ戻る"><img src={back} alt="" /></Link>} hero={<img className="detail-preview-hero" src={store} alt="スターバックスの店内" />}>
+  const [galleryOpener, setGalleryOpener] = useState<HTMLButtonElement | null>(null)
+  return <div className="design-preview"><DetailsLayout backAction={<Link className="back-link" to="/search" search={{ preview: 'design', mode: 'free-time', category: 'すべて', walkMinutes: undefined, freeTime: 60, lat: undefined, lng: undefined, name: undefined, area: '現在地周辺' }} aria-label="検索結果へ戻る"><img src={back} alt="" /></Link>} hero={<button className="detail-hero-photo-button" type="button" onClick={(event) => setGalleryOpener(event.currentTarget)} aria-label="スターバックスの写真一覧を開く"><img className="detail-preview-hero" src={store} alt="スターバックスの店内" /></button>}>
     <DetailSummary name={'スターバックス\nJRゲートタワー店'} description="名古屋駅直結のスターバックス。仕事や待ち合わせにも。" tags={[{ label: 'カフェ' }, { label: '屋内' }, { label: '営業中', tone: 'positive' }]} rating="3.7" reviewCount={500} />
-    <DetailPhotoGallery placeName="スターバックス" photos={[]} imageSources={[{ src: store, alt: 'スターバックスの店内' }, { src: drinks, alt: 'ドリンク' }, { src: coffee, alt: 'コーヒー' }, { src: food, alt: 'フード' }, { src: store, alt: 'スターバックスの外観' }, { src: drinks, alt: 'アイスドリンク' }, { src: coffee, alt: 'コーヒー豆' }]} />
+    <DetailPhotoGallery placeName="スターバックス" photos={[]} imageSources={previewPhotos} onOpen={setGalleryOpener} />
     <div className="detail-walking"><DetailRow icon="walk">現在地から320m（徒歩5分）</DetailRow></div>
     <DetailInfoCards openingHours="7:00~22:00" budget="¥300~¥1,000" />
     <DetailTabs activeTab={activeTab} onChange={setActiveTab} reviewCount={503} idPrefix="preview-detail" />
     <div className="detail-tab-panel" id={`preview-detail-panel-${activeTab}`} role="tabpanel" aria-labelledby={`preview-detail-tab-${activeTab}`}>{activeTab === 'map' ? <div className="detail-map-wrap"><div className="detail-map"><img src={detailMap} alt="Figma表示確認用の静止地図。操作できません。" /></div><span className="detail-map-expand">地図を広げる</span></div> : <p className="detail-empty">このプレビューでは情報を表示していません。</p>}</div>
     <Button className="route-button" disabled>経路を検索<Icon name="direction" /></Button>
+    {galleryOpener && <DetailPhotoViewer photos={[]} placeName="スターバックス" imageSources={previewPhotos} opener={galleryOpener} onClose={() => setGalleryOpener(null)} />}
   </DetailsLayout></div>
 }
