@@ -57,6 +57,7 @@ describe('place API helpers', () => {
       location: { lat: 35.1, lng: 136.1 },
       address: '名古屋市',
       openingHours: ['月曜日: 9:00～18:00', 42],
+      todayOpeningHours: '9:00～18:00',
       budget: '￥1,000〜￥2,000',
     })))
     await expect(getPlaceDetails('place-1')).resolves.toMatchObject({
@@ -66,6 +67,7 @@ describe('place API helpers', () => {
       rating: null,
       openNow: null,
       openingHours: ['月曜日: 9:00～18:00'],
+      todayOpeningHours: '9:00～18:00',
       budget: '￥1,000〜￥2,000',
     })
   })

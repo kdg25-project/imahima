@@ -31,6 +31,7 @@ export type PlaceSummary = {
 export type PlaceDetails = PlaceSummary & {
   address: string | null
   openingHours: string[]
+  todayOpeningHours: string | null
   budget: string | null
 }
 
@@ -190,6 +191,9 @@ function parsePlace(value: unknown, includeAddress: boolean): PlaceSummary | Pla
         ...place,
         address: typeof value.address === 'string' ? value.address : null,
         openingHours: parseOpeningHours(value.openingHours),
+        todayOpeningHours: typeof value.todayOpeningHours === 'string' && value.todayOpeningHours.trim() !== ''
+          ? value.todayOpeningHours
+          : null,
         budget: typeof value.budget === 'string' ? value.budget : null,
       }
     : place

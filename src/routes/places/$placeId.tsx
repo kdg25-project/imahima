@@ -90,7 +90,7 @@ function PlaceDetails() {
       {!hasSearchCoordinates(search) && <DetailRow icon="walk">検索地点を選ぶと徒歩経路を確認できます</DetailRow>}
     </div>
     <DetailInfoCards
-      openingHours={place.openingHours}
+      todayOpeningHours={place.todayOpeningHours}
       budget={place.budget}
     />
     <DetailTabs activeTab={activeTab} onChange={setActiveTab} />

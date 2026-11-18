@@ -16,6 +16,7 @@ type GooglePlaceDetailsResponse = {
   rating?: number;
   currentOpeningHours?: { openNow?: boolean; weekdayDescriptions?: unknown };
   regularOpeningHours?: { weekdayDescriptions?: unknown };
+  timeZone?: { id?: unknown };
   priceLevel?: unknown;
   priceRange?: unknown;
   location?: { latitude?: number; longitude?: number };
@@ -71,6 +72,32 @@ function normalizeOpeningHours(value: unknown): string[] {
   return value.weekdayDescriptions.filter(
     (description): description is string => typeof description === 'string' && description.trim() !== '',
   )
+}
+
+function placeTimeZone(value: unknown) {
+  if (!isRecord(value) || typeof value.id !== 'string') return 'Asia/Tokyo'
+  try {
+    new Intl.DateTimeFormat('ja-JP', { timeZone: value.id })
+    return value.id
+  } catch {
+    return 'Asia/Tokyo'
+  }
+}
+
+function todayWeekday(timeZone: string) {
+  return new Intl.DateTimeFormat('ja-JP', { timeZone, weekday: 'long' }).format(new Date())
+}
+
+function openingHoursForWeekday(hours: string[], weekday: string) {
+  const prefix = new RegExp(`^${weekday}\\s*[:：]\\s*`)
+  const description = hours.find((hour) => prefix.test(hour.trim()))
+  return description ? description.trim().replace(prefix, '') || null : null
+}
+
+function todayOpeningHours(currentHours: unknown, regularHours: unknown, timeZone: unknown) {
+  const weekday = todayWeekday(placeTimeZone(timeZone))
+  return openingHoursForWeekday(normalizeOpeningHours(currentHours), weekday)
+    ?? openingHoursForWeekday(normalizeOpeningHours(regularHours), weekday)
 }
 
 function normalizePriceAmount(value: unknown): PriceAmount | null {
@@ -232,7 +259,7 @@ app.get('/:placeId', async (c) => {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': apiKey,
         // Place Details (New) では FieldMask に 'places.' プレフィックスを付けません
-        'X-Goog-FieldMask': 'id,displayName,formattedAddress,primaryType,types,rating,currentOpeningHours,regularOpeningHours,priceRange,priceLevel,location,photos,photos.authorAttributions',
+        'X-Goog-FieldMask': 'id,displayName,formattedAddress,primaryType,types,rating,currentOpeningHours,regularOpeningHours,timeZone,priceRange,priceLevel,location,photos,photos.authorAttributions',
       },
     });
   } catch (error) {
@@ -276,6 +303,7 @@ app.get('/:placeId', async (c) => {
       const regularHours = normalizeOpeningHours(data.regularOpeningHours)
       return regularHours.length > 0 ? regularHours : normalizeOpeningHours(data.currentOpeningHours)
     })(),
+    todayOpeningHours: todayOpeningHours(data.currentOpeningHours, data.regularOpeningHours, data.timeZone),
     budget: formatBudget(data.priceRange, data.priceLevel),
     location:
       data.location?.latitude !== undefined && data.location?.longitude !== undefined

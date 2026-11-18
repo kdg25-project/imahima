@@ -1,11 +1,17 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import app from '../index';
 
 describe('GET /api/places/:placeId', () => {
   const env = { GOOGLE_MAPS_API_KEY: 'test-api-key' };
 
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-18T03:00:00Z'));
     vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   // 1. 正常系
@@ -16,8 +22,8 @@ describe('GET /api/places/:placeId', () => {
       formattedAddress: '愛知県名古屋市...',
       primaryType: 'cafe',
       rating: 4.2,
-      currentOpeningHours: { openNow: true, weekdayDescriptions: ['臨時営業時間'] },
-      regularOpeningHours: { weekdayDescriptions: ['月曜日: 9:00～18:00', '火曜日: 9:00～18:00'] },
+      currentOpeningHours: { openNow: true, weekdayDescriptions: ['水曜日: 臨時営業 11:00～17:00'] },
+      regularOpeningHours: { weekdayDescriptions: ['月曜日: 9:00～18:00', '火曜日: 9:00～18:00', '水曜日: 9:00～18:00'] },
       priceRange: {
         startPrice: { currencyCode: 'JPY', units: '300' },
         endPrice: { currencyCode: 'JPY', units: '1000' },
@@ -49,7 +55,8 @@ describe('GET /api/places/:placeId', () => {
       appCategory: 'cafe',
       rating: 4.2,
       openNow: true,
-      openingHours: ['月曜日: 9:00～18:00', '火曜日: 9:00～18:00'],
+      openingHours: ['月曜日: 9:00～18:00', '火曜日: 9:00～18:00', '水曜日: 9:00～18:00'],
+      todayOpeningHours: '臨時営業 11:00～17:00',
       budget: '￥300〜￥1,000',
       location: { lat: 35.17, lng: 136.88 },
       photos: [{
@@ -60,6 +67,7 @@ describe('GET /api/places/:placeId', () => {
       }],
     });
     expect(new Headers(vi.mocked(globalThis.fetch).mock.calls[0]?.[1]?.headers).get('X-Goog-FieldMask')).toContain('regularOpeningHours')
+    expect(new Headers(vi.mocked(globalThis.fetch).mock.calls[0]?.[1]?.headers).get('X-Goog-FieldMask')).toContain('timeZone')
     expect(new Headers(vi.mocked(globalThis.fetch).mock.calls[0]?.[1]?.headers).get('X-Goog-FieldMask')).toContain('priceRange')
   });
 
@@ -83,6 +91,33 @@ describe('GET /api/places/:placeId', () => {
       openingHours: ['月曜日: 10:00～18:00'],
       budget: '安め',
     })
+  })
+
+  it('本日の営業時間は曜日名で選び、順番に依存せず通常営業時間へフォールバックする', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(Response.json({
+      id: 'today-hours',
+      currentOpeningHours: { weekdayDescriptions: ['火曜日: 臨時休業', '月曜日: 10:00～18:00'] },
+      regularOpeningHours: { weekdayDescriptions: ['日曜日: 定休日', '水曜日: 10:00～13:00、14:00～18:00', '月曜日: 10:00～18:00'] },
+      timeZone: { id: 'Asia/Tokyo' },
+    }))
+
+    const response = await app.request('/api/places/today-hours', {}, env)
+
+    expect(await response.json()).toMatchObject({
+      todayOpeningHours: '10:00～13:00、14:00～18:00',
+    })
+  })
+
+  it('本日の特別休業は通常営業時間より優先する', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(Response.json({
+      id: 'closed-today',
+      currentOpeningHours: { weekdayDescriptions: ['水曜日: 定休日'] },
+      regularOpeningHours: { weekdayDescriptions: ['水曜日: 10:00～18:00'] },
+    }))
+
+    const response = await app.request('/api/places/closed-today', {}, env)
+
+    expect(await response.json()).toMatchObject({ todayOpeningHours: '定休日' })
   })
 
   it('上限のない価格帯は「以上」として返す', async () => {
@@ -238,6 +273,7 @@ describe('GET /api/places/:placeId', () => {
       rating: null,
       openNow: null,
       openingHours: [],
+      todayOpeningHours: null,
       budget: null,
       location: null,
       photos: [],

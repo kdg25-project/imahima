@@ -41,7 +41,7 @@ export function DetailsPreview() {
     <DetailPhotoGallery placeName="スターバックス" photos={[]} imageSources={previewPhotos} onOpen={setGalleryOpener} />
     <div className="detail-walking"><DetailRow icon="walk">現在地から320m（徒歩5分）</DetailRow></div>
     <DetailInfoCards
-      openingHours={['月曜日: 7:00～22:00', '火曜日: 7:00～22:00']}
+      todayOpeningHours="7:00～22:00"
       budget="¥300〜¥1,000"
     />
     <DetailTabs activeTab={activeTab} onChange={setActiveTab} reviewCount={503} idPrefix="preview-detail" />

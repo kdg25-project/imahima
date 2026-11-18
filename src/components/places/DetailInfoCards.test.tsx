@@ -5,14 +5,14 @@ import { DetailInfoCards } from './DetailInfoCards'
 
 afterEach(cleanup)
 
-it('曜日別営業時間と予算を表示する', () => {
+it('本日の営業時間と予算を表示する', () => {
   render(<DetailInfoCards
-    openingHours={['月曜日: 9:00～18:00', '火曜日: 9:00～18:00']}
+    todayOpeningHours="9:00～18:00"
     budget="￥1,000〜￥2,000"
   />)
 
-  expect(screen.getByText('月曜日: 9:00～18:00')).toBeTruthy()
-  expect(screen.getByText('火曜日: 9:00～18:00')).toBeTruthy()
+  expect(screen.getByText('本日の営業時間')).toBeTruthy()
+  expect(screen.getByText('9:00～18:00')).toBeTruthy()
   expect(screen.getByText('￥1,000〜￥2,000')).toBeTruthy()
 })
 
