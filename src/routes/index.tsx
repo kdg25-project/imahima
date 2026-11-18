@@ -194,39 +194,43 @@ function Home() {
     <div className="home-screen">
       <header className="home-header"><h1 className="brand">いまひま？</h1><Link className="home-favorites-link" to="/favorites">お気に入り</Link></header>
       <div className="home-form">
-        <div className="home-modes" role="group" aria-label="検索モード">
-          <button type="button" aria-pressed={mode === 'nearby'} onClick={() => setMode('nearby')}>近くから探す</button>
-          <button type="button" aria-pressed={mode === 'free-time'} onClick={() => setMode('free-time')}>暇つぶしから探す</button>
-        </div>
-        {mode === 'free-time' && <fieldset className="choice-group time-field">
-          <legend><Icon name="clock" />空き時間</legend>
-          <TimeRange labels={timeLabels} value={timePosition} onChange={setTimePosition} />
-        </fieldset>}
-        <fieldset className="choice-group area-field">
-          <legend><Icon name="pin" />エリア</legend>
-          <button type="button" className="field-inset area-control" aria-expanded={isLocationOpen} aria-controls="location-options" onClick={() => setIsLocationOpen((open) => !open)}>
-            <Icon name="map" /><span>{locationName}</span><Icon name="down" />
-          </button>
-          {locationStatusMessage(locationStatus) && <p className="location-status" role="status">{locationStatusMessage(locationStatus)}</p>}
-          {isLocationOpen && <div id="location-options" className="location-options">
-            <div className="location-actions">
-              <label className="location-search-field"><span className="visually-hidden">駅名・地名を検索</span><Search className="location-search-icon" aria-hidden="true" /><input type="search" value={locationQuery} onChange={(event) => { invalidateLocationIntent(); setLocationStatus('idle'); const nextQuery = event.target.value; setLocationQuery(nextQuery); if (nextQuery.trim().length < 2) { setCandidates([]); setCandidateStatus('idle') } }} placeholder="駅名・地名で検索" /></label>
-              <button type="button" className="location-button" onClick={requestCurrentLocation} aria-label="現在地を使う" title="現在地を使う"><MapPinPlus aria-hidden="true" /></button>
-            </div>
-            {locationQuery.trim().length >= 2 && <div className="location-candidates" aria-live="polite">
-              {candidateStatus === 'loading' && <LoadingState title="候補を読み込んでいます" />}
-              {candidateStatus === 'error' && <p className="text-muted">候補を取得できませんでした。</p>}
-              {candidateStatus === 'idle' && candidates.map((candidate) => <button type="button" key={`${candidate.name}|${candidate.area}|${candidate.lat}|${candidate.lng}`} onClick={() => selectCandidate(candidate)}><strong>{candidate.name}</strong><span>{candidate.area}</span></button>)}
-              {candidateStatus === 'idle' && candidates.length === 0 && <p className="text-muted">候補が見つかりません。</p>}
+        <div className="home-form__fields">
+          <div className="home-modes" role="group" aria-label="検索モード">
+            <button type="button" aria-pressed={mode === 'nearby'} onClick={() => setMode('nearby')}>近くから探す</button>
+            <button type="button" aria-pressed={mode === 'free-time'} onClick={() => setMode('free-time')}>暇つぶしから探す</button>
+          </div>
+          {mode === 'free-time' && <fieldset className="choice-group time-field">
+            <legend><Icon name="clock" />空き時間</legend>
+            <TimeRange labels={timeLabels} value={timePosition} onChange={setTimePosition} />
+          </fieldset>}
+          <fieldset className="choice-group area-field">
+            <legend><Icon name="pin" />エリア</legend>
+            <button type="button" className="field-inset area-control" aria-expanded={isLocationOpen} aria-controls="location-options" onClick={() => setIsLocationOpen((open) => !open)}>
+              <Icon name="map" /><span>{locationName}</span><Icon name="down" />
+            </button>
+            {locationStatusMessage(locationStatus) && <p className="location-status" role="status">{locationStatusMessage(locationStatus)}</p>}
+            {isLocationOpen && <div id="location-options" className="location-options">
+              <div className="location-actions">
+                <label className="location-search-field"><span className="visually-hidden">駅名・地名を検索</span><Search className="location-search-icon" aria-hidden="true" /><input type="search" value={locationQuery} onChange={(event) => { invalidateLocationIntent(); setLocationStatus('idle'); const nextQuery = event.target.value; setLocationQuery(nextQuery); if (nextQuery.trim().length < 2) { setCandidates([]); setCandidateStatus('idle') } }} placeholder="駅名・地名で検索" /></label>
+                <button type="button" className="location-button" onClick={requestCurrentLocation} aria-label="現在地を使う" title="現在地を使う"><MapPinPlus aria-hidden="true" /></button>
+              </div>
+              {locationQuery.trim().length >= 2 && <div className="location-candidates" aria-live="polite">
+                {candidateStatus === 'loading' && <LoadingState title="候補を読み込んでいます" />}
+                {candidateStatus === 'error' && <p className="text-muted">候補を取得できませんでした。</p>}
+                {candidateStatus === 'idle' && candidates.map((candidate) => <button type="button" key={`${candidate.name}|${candidate.area}|${candidate.lat}|${candidate.lng}`} onClick={() => selectCandidate(candidate)}><strong>{candidate.name}</strong><span>{candidate.area}</span></button>)}
+                {candidateStatus === 'idle' && candidates.length === 0 && <p className="text-muted">候補が見つかりません。</p>}
+              </div>}
             </div>}
-          </div>}
-        </fieldset>
-        <fieldset className="choice-group category-field">
-          <legend><LayoutGrid className="category-lucide-icon" aria-hidden="true" />カテゴリ</legend>
-          <div className="field-inset category-grid">{categories.map(({ label, icon: CategoryIcon }) => <ChoiceChip key={label} selected={category === label} onClick={() => setCategory(label)} icon={<CategoryIcon className="category-lucide-icon" aria-hidden="true" />}>{label}</ChoiceChip>)}</div>
-        </fieldset>
-        {searchNotice && <p className="home-search-notice" role="alert">{searchNotice}</p>}
-        <button className={`${buttonClassName()} button--arrow home-search`} type="button" onClick={submitSearch}><span>この条件で探す</span><ButtonArrow /></button>
+          </fieldset>
+          <fieldset className="choice-group category-field">
+            <legend><LayoutGrid className="category-lucide-icon" aria-hidden="true" />カテゴリ</legend>
+            <div className="field-inset category-grid">{categories.map(({ label, icon: CategoryIcon }) => <ChoiceChip key={label} selected={category === label} onClick={() => setCategory(label)} icon={<CategoryIcon className="category-lucide-icon" aria-hidden="true" />}>{label}</ChoiceChip>)}</div>
+          </fieldset>
+        </div>
+        <div className="home-search-bar">
+          {searchNotice && <p className="home-search-notice" role="alert">{searchNotice}</p>}
+          <button className={`${buttonClassName()} button--arrow home-search`} type="button" onClick={submitSearch}><span>この条件で探す</span><ButtonArrow /></button>
+        </div>
       </div>
     </div>
   )
