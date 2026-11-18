@@ -2,7 +2,9 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { ErrorState, LoadingState } from '../../components/feedback/States'
 import { DetailRow, DetailsLayout } from '../../components/places/DetailsLayout'
+import { DetailInfoCards } from '../../components/places/DetailInfoCards'
 import { DetailSummary } from '../../components/places/DetailSummary'
+import { DetailTabs, type DetailTab } from '../../components/places/DetailTabs'
 import { PlacePhoto } from '../../components/places/PlacePhoto'
 import { PlaceMap } from '../../components/maps/PlaceMap'
 import { buttonClassName } from '../../components/ui/Button'
@@ -23,6 +25,7 @@ function PlaceDetails() {
   const { lat, lng } = search
   const [attempt, setAttempt] = useState(0)
   const [state, setState] = useState<DetailState>({ status: 'loading' })
+  const [activeTab, setActiveTab] = useState<DetailTab>('map')
   const retry = useCallback(() => setAttempt((value) => value + 1), [])
 
   useEffect(() => {
@@ -72,16 +75,31 @@ function PlaceDetails() {
     travelmode: 'walking',
   })
   if (hasSearchCoordinates(search)) directions.set('origin', `${search.lat},${search.lng}`)
+  const mapSearch = place.location
+    ? `https://www.google.com/maps/search/?${new URLSearchParams({ api: '1', query: `${place.name ?? ''} ${place.location.lat},${place.location.lng}` })}`
+    : undefined
   return <DetailsLayout backAction={backAction} hero={place.photos[0] ? <PlacePhoto photo={place.photos[0]} alt={`${place.name ?? 'スポット'}の写真`} className="detail-hero-photo" width={1200} /> : <div className="hero-placeholder">スポットの写真は利用できません</div>}>
     <DetailSummary name={place.name ?? '名称未設定のスポット'} tags={tags} rating={place.rating?.toFixed(1)} />
     {place.id && <div className="detail-favorite"><FavoriteButton placeId={place.id} className="favorite-button" /></div>}
-    <div className="detail-info">
-      {place.address && <DetailRow icon="pinDetail">{place.address}</DetailRow>}
-      {route && <DetailRow icon="walk" supplement={formatWalkingDuration(route.durationSeconds)}>{search.name ?? search.area}から{formatDistance(route.distanceMeters)}</DetailRow>}
+    {place.photos.length > 1 && <div className="detail-gallery" aria-label={`${place.name ?? 'スポット'}の写真`}>
+      {place.photos.slice(0, 3).map((photo, index) => <div className="detail-gallery__card" key={photo.name ?? index}>
+        <PlacePhoto photo={photo} alt={`${place.name ?? 'スポット'}の写真 ${index + 1}`} width={360} />
+        {index === 2 && place.photos.length > 3 && <span className="detail-gallery__more">+{place.photos.length - 3}</span>}
+      </div>)}
+    </div>}
+    <div className="detail-walking">
+      {route && <DetailRow icon="walk">{search.name ?? search.area}から{formatDistance(route.distanceMeters)}（{formatWalkingDuration(route.durationSeconds)}）</DetailRow>}
       {!route && hasSearchCoordinates(search) && routeUnavailable && <DetailRow icon="walk">徒歩経路を取得できませんでした</DetailRow>}
       {!hasSearchCoordinates(search) && <DetailRow icon="walk">検索地点を選ぶと徒歩経路を確認できます</DetailRow>}
     </div>
-    <PlaceMap className="detail-map" place={{ name: place.name, location: place.location }} />
+    <DetailInfoCards />
+    <DetailTabs activeTab={activeTab} onChange={setActiveTab} />
+    <div className="detail-tab-panel" role="tabpanel" id={`detail-panel-${activeTab}`} aria-labelledby={`detail-tab-${activeTab}`}>
+      {activeTab === 'map' && <div className="detail-map-wrap"><PlaceMap className="detail-map" place={{ name: place.name, location: place.location }} />{mapSearch && <a className="detail-map-expand" href={mapSearch} target="_blank" rel="noreferrer">地図を広げる</a>}</div>}
+      {activeTab === 'menu' && <p className="detail-empty">メニュー情報はまだありません。</p>}
+      {activeTab === 'reviews' && <p className="detail-empty">口コミ情報はまだありません。</p>}
+      {activeTab === 'facility' && <div className="detail-info">{place.address ? <DetailRow icon="pinDetail">{place.address}</DetailRow> : <p className="detail-empty">施設情報はまだありません。</p>}</div>}
+    </div>
     <a className={`${buttonClassName()} route-button`} href={`https://www.google.com/maps/dir/?${directions}`} target="_blank" rel="noreferrer"><Icon name="direction" />経路を検索</a>
   </DetailsLayout>
 }
